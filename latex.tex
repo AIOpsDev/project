@@ -1,0 +1,186 @@
+\documentclass[10pt,a4paper]{article}
+
+\usepackage[a4paper,left=20mm,right=20mm,top=20mm,bottom=23mm,footskip=11mm]{geometry}
+\usepackage{iftex}
+\usepackage{xcolor}
+\usepackage{ragged2e}
+\usepackage{fancyhdr}
+\usepackage[hidelinks]{hyperref}
+
+\ifPDFTeX
+    \usepackage[T1]{fontenc}
+    \usepackage[default,type1]{inter}
+    \usepackage{letterspace}
+    \newcommand{\mediumfont}{\intermedium}
+    \newcommand{\semiboldfont}{\intersemibold}
+    \newcommand{\tracked}[2]{%
+        \textls[\the\numexpr#1*10\relax]{#2}%
+    }
+\else
+    \usepackage{fontspec}
+    \setmainfont{Inter}[
+        UprightFont=Inter-Regular.otf,
+        BoldFont=Inter-Bold.otf,
+        ItalicFont=Inter-Italic.otf,
+        BoldItalicFont=Inter-BoldItalic.otf
+    ]
+    \newfontfamily\mediumfont{Inter-Medium.otf}
+    \newfontfamily\semiboldfont{Inter-SemiBold.otf}
+    \newcommand{\tracked}[2]{%
+        {\addfontfeatures{LetterSpace=#1}#2}%
+    }
+\fi
+
+% ---------- Colors ----------
+\definecolor{ink}{HTML}{17232D}
+\definecolor{muted}{HTML}{64717B}
+\definecolor{accent}{HTML}{185ABC}
+\definecolor{hairline}{HTML}{D8DFE2}
+
+% ---------- General ----------
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0pt}
+\setlength{\headheight}{0pt}
+\setlength{\emergencystretch}{1em}
+
+\setlength{\RaggedRightRightskip}{0pt plus 3em}
+
+\hyphenpenalty=10000
+\exhyphenpenalty=10000
+
+% ---------- Footer ----------
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+
+\fancyfoot[C]{%
+    \begin{minipage}{\textwidth}
+        {\color{hairline}\hrule height 0.35pt}
+        \vspace{3mm}
+        {\mediumfont
+        \fontsize{8}{10}\selectfont
+        \color{muted}
+        Student ID\hfill
+        CSE\enspace\textperiodcentered\enspace University Name}
+    \end{minipage}%
+}
+
+% ---------- Metadata label ----------
+\newcommand{\metalabel}[1]{%
+    {\mediumfont
+    \fontsize{7.5}{10}\selectfont
+    \color{muted}
+    \tracked{9}{#1}\par}
+    \vspace{1.5mm}%
+}
+
+% ---------- Synopsis section ----------
+\newcommand{\synopsissection}[2]{%
+    \noindent
+    \begin{minipage}[t]{28mm}
+        \vspace{0.6pt}% Aligns small title font with body cap-height
+        {\semiboldfont
+        \fontsize{8}{10}\selectfont
+        \color{accent}
+        \tracked{4}{#1}\strut}
+    \end{minipage}%
+    \hspace{6mm}%
+    \begin{minipage}[t]{\dimexpr\textwidth-34mm\relax}
+        \vspace{0pt}
+        {\fontsize{10.5}{15.2}\selectfont
+        \RaggedRight
+        \strut #2\par}
+    \end{minipage}%
+    \par
+    \vspace{5mm}%
+}
+
+% ---------- PDF Metadata ----------
+\hypersetup{
+    pdftitle={AI-Assisted Self-Checkout \& Modular POS Engine},
+    pdfauthor={Full Name (Student ID)},
+    pdfsubject={Bangladesh Innovation Fair 2026 - Software / B2B Retail Prototype}
+}
+
+\begin{document}
+
+\color{ink}
+
+% ---------- Header ----------
+{\semiboldfont
+\fontsize{8.5}{11}\selectfont
+\color{accent}
+\tracked{11}{BANGLADESH INNOVATION FAIR 2026}\par}
+
+\vspace{6mm}
+
+{\bfseries
+\fontsize{26}{30}\selectfont
+AI-Assisted Self-Checkout\par
+\& Modular POS Engine\par}
+
+\vspace{6mm}
+
+% ---------- Project metadata ----------
+\begin{minipage}[t]{68mm}
+    \metalabel{TRACK}
+    {\mediumfont
+    \fontsize{9}{12}\selectfont
+    Software / B2B Retail Prototype\par}
+\end{minipage}%
+\begin{minipage}[t]{48mm}
+    \metalabel{INSTITUTION}
+    {\mediumfont
+    \fontsize{9}{12}\selectfont
+    University\par}
+\end{minipage}%
+\begin{minipage}[t]{54mm}
+    \metalabel{GITHUB}
+    {\mediumfont
+    \fontsize{9}{12}\selectfont
+    \href{https://github.com/user}{github.com/user}\par}
+\end{minipage}\par
+
+\vspace{4mm}
+
+{\mediumfont
+\fontsize{8}{11}\selectfont
+{\color{muted}\tracked{7}{AUTHOR}}
+\hspace{3mm}
+Full Name (Student ID)\par}
+
+\vspace{5mm}
+
+{\color{hairline}\hrule height 0.5pt}
+
+\vspace{5mm}
+
+% ---------- Synopsis ----------
+{\semiboldfont
+\fontsize{9}{12}\selectfont
+\tracked{8}{PROJECT SYNOPSIS}\par}
+
+\vspace{5mm}
+
+\synopsissection{PROBLEM}{%
+Self-checkout and modern POS systems are established in international markets, yet access to comparable technology remains limited for smaller retailers in Bangladesh. High equipment costs and staffing constraints make conventional automation difficult to adopt. This creates a clear opportunity for an affordable, software-driven approach built around standard consumer hardware.
+}
+
+\synopsissection{PLATFORM}{%
+The solution uses a modular POS engine that supports both cashier operations and customer self-checkout. A standard consumer laptop, webcam, and speakers provide the necessary hardware, keeping deployment adaptable and inexpensive.
+}
+
+\synopsissection{PIPELINE}{%
+Items are scanned locally using OpenCV, with SQLite handling the primary product catalogue. A web search API resolves missing database records, and vision OCR extracts details directly from packaging. Before payment, an AI layer evaluates the cart to offer smart recommendations, such as suggesting cookies with coffee.
+}
+
+\synopsissection{LOCALIZATION}{%
+For zero-latency operation, the system uses pre-recorded Bangla voice prompts. The checkout process concludes with a simulated Bangla QR payment interface, reflecting local mobile financial services.
+}
+
+\synopsissection{MARKET}{%
+By eliminating specialized retail hardware, the system provides small and medium businesses a direct, low-cost path to digital sales automation.
+}
+
+\end{document}
