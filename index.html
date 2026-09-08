@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>1AI-POS Hybrid Live Barcode & OCR Reader</title>
+    <title>AI-POS Hybrid Live Barcode & OCR Reader</title>
     <style>
         :root {
             --bg-color: #0f172a;
@@ -252,11 +252,20 @@
     let activeStream = null;
     let lastFrameTime = performance.now();
     let frameCount = 0;
+    let lastOcrRunTime = 0;
+    const OCR_INTERVAL_MS = 600; // Throttle OCR to run at max ~1.5 times/sec
 
-    // Persistent Bounding Box Tracking System (Eliminates Flickering)
+    // Persistent Canvas Buffers (Prevents memory allocation stutter/GC lag)
+    const offscreenCanvas = document.createElement('canvas');
+    const offscreenCtx = offscreenCanvas.getContext('2d', { willReadFrequently: true });
+    
+    const ocrProcCanvas = document.createElement('canvas');
+    const ocrProcCtx = ocrProcCanvas.getContext('2d', { willReadFrequently: true });
+
+    // Persistent Bounding Box Tracking System (Extended hold time, no blinking)
     const detectedBoxTracker = new Map();
     const activeBarcodeTracker = new Map();
-    const DISPLAY_HOLD_TIME_MS = 1600; // Time boxes remain visible after detection
+    const DISPLAY_HOLD_TIME_MS = 3500; // Keep bounding boxes locked in place for 3.5s
 
     function log(msg, type = 'info') {
         const entry = document.createElement('div');
@@ -267,7 +276,6 @@
         logBox.scrollTop = logBox.scrollHeight;
     }
 
-    // 1. Initialize Native BarcodeDetector or Quagga
     async function initBarcodeDetector() {
         if ('BarcodeDetector' in window) {
             try {
@@ -282,7 +290,6 @@
         }
     }
 
-    // 2. Initialize Tesseract.js Worker
     async function initOCR() {
         try {
             log("Loading Tesseract WASM OCR Core...");
@@ -296,7 +303,6 @@
     initBarcodeDetector();
     initOCR();
 
-    // 3. WebRTC Stream Loader (With HTTPS / Hostname Checks)
     async function startCamera() {
         if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
             log("SECURITY ERROR: WebRTC requires HTTPS or localhost!", "error");
@@ -346,12 +352,18 @@
     function syncCanvasDimensions(w, h) {
         overlayCanvas.width = w;
         overlayCanvas.height = h;
+        offscreenCanvas.width = w;
+        offscreenCanvas.height = h;
+        
+        // OCR downscaled buffer (e.g., max 640px wide) for fast processing without lag
+        const scale = Math.min(1, 640 / w);
+        ocrProcCanvas.width = Math.round(w * scale);
+        ocrProcCanvas.height = Math.round(h * scale);
     }
 
-    // 4. Live Video Loop: Runs OCR & Barcode Async, Renders Smooth Canvas at 60 FPS
     async function liveProcessingLoop() {
         if (video.readyState === video.HAVE_ENOUGH_DATA) {
-            // Update FPS Counter
+            // FPS Counter
             frameCount++;
             const now = performance.now();
             if (now - lastFrameTime >= 1000) {
@@ -360,22 +372,16 @@
                 lastFrameTime = now;
             }
 
-            const offscreenCanvas = document.createElement('canvas');
-            offscreenCanvas.width = video.videoWidth;
-            offscreenCanvas.height = video.videoHeight;
-            const oCtx = offscreenCanvas.getContext('2d');
-            oCtx.drawImage(video, 0, 0);
-
             const currentTime = Date.now();
-            let detectedBarcodeBoxes = [];
 
-            // Run Barcode Detection
+            // 1. Fast Native Barcode Scan
             if (barcodeDetector) {
                 try {
+                    // Fast draw on persistent buffer
+                    offscreenCtx.drawImage(video, 0, 0, offscreenCanvas.width, offscreenCanvas.height);
                     const barcodes = await barcodeDetector.detect(offscreenCanvas);
                     barcodes.forEach(bc => {
                         const box = bc.boundingBox;
-                        detectedBarcodeBoxes.push(box);
                         activeBarcodeTracker.set(bc.rawValue, {
                             x: box.x, y: box.y, w: box.width, h: box.height,
                             text: `BAR: ${bc.rawValue}`,
@@ -384,37 +390,39 @@
                         log(`Barcode Read: ${bc.rawValue}`, "barcode");
                     });
                 } catch (e) {
-                    // Transient frame error ignore
+                    // Ignore transient frames
                 }
             }
 
-            // Run OCR Fallback Loop (Asynchronous to prevent video lag)
-            if (ocrWorker && !isOcrProcessing) {
+            // 2. Throttled Non-Blocking Async OCR Scan
+            if (ocrWorker && !isOcrProcessing && (currentTime - lastOcrRunTime > OCR_INTERVAL_MS)) {
                 isOcrProcessing = true;
-                
-                const preprocessedCanvas = preprocessImageForOCR(offscreenCanvas);
+                lastOcrRunTime = currentTime;
 
-                ocrWorker.recognize(preprocessedCanvas).then(({ data }) => {
+                // Prepare downscaled image for fast OCR without freezing video playback
+                const scaleX = overlayCanvas.width / ocrProcCanvas.width;
+                const scaleY = overlayCanvas.height / ocrProcCanvas.height;
+
+                preprocessImageForOCR(video, ocrProcCanvas, ocrProcCtx);
+
+                ocrWorker.recognize(ocrProcCanvas).then(({ data }) => {
                     data.words.forEach(word => {
-                        // Filter low-confidence matches or words overlapping existing barcode region
                         if (word.confidence > 60 && word.text.trim().length > 2) {
                             const b = word.bbox;
-                            const overlapsBarcode = detectedBarcodeBoxes.some(bbox => 
-                                b.x0 >= bbox.x && b.x1 <= (bbox.x + bbox.width) &&
-                                b.y0 >= bbox.y && b.y1 <= (bbox.y + bbox.height)
-                            );
+                            const fullX = b.x0 * scaleX;
+                            const fullY = b.y0 * scaleY;
+                            const fullW = (b.x1 - b.x0) * scaleX;
+                            const fullH = (b.y1 - b.y0) * scaleY;
 
-                            if (!overlapsBarcode) {
-                                const textKey = word.text.trim().toUpperCase();
-                                detectedBoxTracker.set(textKey, {
-                                    x: b.x0,
-                                    y: b.y0,
-                                    w: b.x1 - b.x0,
-                                    h: b.y1 - b.y0,
-                                    text: `${word.text} (${Math.round(word.confidence)}%)`,
-                                    lastSeen: Date.now()
-                                });
-                            }
+                            const textKey = word.text.trim().toUpperCase();
+                            detectedBoxTracker.set(textKey, {
+                                x: fullX,
+                                y: fullY,
+                                w: fullW,
+                                h: fullH,
+                                text: `${word.text} (${Math.round(word.confidence)}%)`,
+                                lastSeen: Date.now()
+                            });
                         }
                     });
                     isOcrProcessing = false;
@@ -422,7 +430,7 @@
             }
         }
 
-        // Smooth Canvas Rendering Pass
+        // Render persistent bounding box overlay at 60 FPS
         renderOverlayCanvas();
         
         if (activeStream && activeStream.active) {
@@ -430,16 +438,17 @@
         }
     }
 
-    // 5. Render Tracked Overlay Items with Fade-Out Opacity
     function renderOverlayCanvas() {
         ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
         const now = Date.now();
 
-        // Render Active Barcode Boxes
+        // Render Active Barcode Boxes (Solid hold, gentle fade-out at end of 3.5s)
         activeBarcodeTracker.forEach((item, key) => {
             const elapsed = now - item.lastSeen;
             if (elapsed < DISPLAY_HOLD_TIME_MS) {
-                const opacity = 1 - (elapsed / DISPLAY_HOLD_TIME_MS);
+                const opacity = elapsed > (DISPLAY_HOLD_TIME_MS - 800) 
+                    ? (DISPLAY_HOLD_TIME_MS - elapsed) / 800 
+                    : 1.0;
                 drawRectBox(item.x, item.y, item.w, item.h, item.text, "#10b981", opacity);
             } else {
                 activeBarcodeTracker.delete(key);
@@ -450,7 +459,9 @@
         detectedBoxTracker.forEach((item, key) => {
             const elapsed = now - item.lastSeen;
             if (elapsed < DISPLAY_HOLD_TIME_MS) {
-                const opacity = 1 - (elapsed / DISPLAY_HOLD_TIME_MS);
+                const opacity = elapsed > (DISPLAY_HOLD_TIME_MS - 800) 
+                    ? (DISPLAY_HOLD_TIME_MS - elapsed) / 800 
+                    : 1.0;
                 drawRectBox(item.x, item.y, item.w, item.h, item.text, "#f59e0b", opacity);
             } else {
                 detectedBoxTracker.delete(key);
@@ -458,7 +469,6 @@
         });
     }
 
-    // 6. High-Res Photo Capture Handler (Handles Android content:// URIs safely)
     fileFallback.addEventListener('change', async (e) => {
         if (!e.target.files || !e.target.files[0]) return;
         
@@ -467,8 +477,6 @@
         statusText.textContent = "Processing Photo";
 
         const file = e.target.files[0];
-        
-        // Convert content:// URI or File Object to accessible Blob URL
         const blobUrl = URL.createObjectURL(file);
         const img = new Image();
         img.src = blobUrl;
@@ -514,16 +522,18 @@
 
             if (ocrWorker) {
                 log("Running High-Contrast Packaging OCR...");
-                const preprocessedCanvas = preprocessImageForOCR(img);
+                preprocessImageForOCR(img, ocrProcCanvas, ocrProcCtx);
                 
-                const { data } = await ocrWorker.recognize(preprocessedCanvas);
+                const { data } = await ocrWorker.recognize(ocrProcCanvas);
                 let detectedCount = 0;
+                const scaleX = img.width / ocrProcCanvas.width;
+                const scaleY = img.height / ocrProcCanvas.height;
 
                 data.words.forEach(word => {
                     if (word.confidence > 55 && word.text.trim().length > 1) {
                         detectedCount++;
                         const b = word.bbox;
-                        drawRectBox(b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0, `${word.text} (${Math.round(word.confidence)}%)`, "#00ffcc", 1.0);
+                        drawRectBox(b.x0 * scaleX, b.y0 * scaleY, (b.x1 - b.x0) * scaleX, (b.y1 - b.y0) * scaleY, `${word.text} (${Math.round(word.confidence)}%)`, "#00ffcc", 1.0);
                     }
                 });
                 log(`OCR Processing Complete. Identified ${detectedCount} text segments.`, "ocr");
@@ -534,16 +544,10 @@
         };
     });
 
-    // 7. Grayscale + Thresholding Preprocessing Filter
-    function preprocessImageForOCR(imageSource) {
-        const procCanvas = document.createElement('canvas');
-        procCanvas.width = imageSource.width || imageSource.videoWidth;
-        procCanvas.height = imageSource.height || imageSource.videoHeight;
-        const pCtx = procCanvas.getContext('2d');
+    function preprocessImageForOCR(source, targetCanvas, targetCtx) {
+        targetCtx.drawImage(source, 0, 0, targetCanvas.width, targetCanvas.height);
         
-        pCtx.drawImage(imageSource, 0, 0);
-        
-        const imgData = pCtx.getImageData(0, 0, procCanvas.width, procCanvas.height);
+        const imgData = targetCtx.getImageData(0, 0, targetCanvas.width, targetCanvas.height);
         const data = imgData.data;
 
         for (let i = 0; i < data.length; i += 4) {
@@ -554,11 +558,9 @@
             data[i + 2] = binary;
         }
 
-        pCtx.putImageData(imgData, 0, 0);
-        return procCanvas;
+        targetCtx.putImageData(imgData, 0, 0);
     }
 
-    // 8. Bounding Box & Label Rendering Helper
     function drawRectBox(x, y, w, h, text, color, opacity = 1.0) {
         ctx.save();
         ctx.globalAlpha = opacity;
@@ -603,7 +605,6 @@
         ctx.fillText(text, x + 5, y - 22 > 0 ? y - 6 : y + 16);
     }
 
-    // 9. Quagga Live Streaming Fallback Engine
     function startQuaggaLive() {
         Quagga.init({
             inputStream: {
