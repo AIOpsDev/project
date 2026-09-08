@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI-POS Hybrid Live Barcode & OCR Reader</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: #1e293b;
+            --accent-color: #06b6d4;
+            --barcode-color: #10b981;
+            --ocr-color: #f59e0b;
+            --text-color: #f8fafc;
+            --border-color: #334155;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 12px;
+        }
+
+        header {
+            width: 100%;
+            max-width: 600px;
+            text-align: center;
+            margin-bottom: 12px;
+        }
+
+        header h1 {
+            font-size: 1.25rem;
+            color: var(--accent-color);
+            letter-spacing: 0.5px;
+        }
+
+        header p {
+            font-size: 0.8rem;
+            color: #94a3b8;
+            margin-top: 2px;
+        }
+
+        .viewport-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            aspect-ratio: 4 / 3;
+            background-color: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid var(--border-color);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+        }
+
+        video, canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        #overlayCanvas {
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .status-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 20;
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid var(--border-color);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            backdrop-filter: blur(4px);
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #ef4444;
+        }
+
+        .dot.active {
+            background-color: #10b981;
+            box-shadow: 0 0 8px #10b981;
+        }
+
+        .controls {
+            width: 100%;
+            max-width: 600px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        button, label.btn-fallback {
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background-color: #2563eb;
+            color: #ffffff;
+        }
+
+        .btn-primary:active {
+            background-color: #1d4ed8;
+        }
+
+        label.btn-fallback {
+            background-color: #059669;
+            color: #ffffff;
+        }
+
+        label.btn-fallback:active {
+            background-color: #047857;
+        }
+
+        #fileFallback {
+            display: none;
+        }
+
+        .console-panel {
+            width: 100%;
+            max-width: 600px;
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-top: 12px;
+            padding: 10px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .console-header {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: #64748b;
+            font-weight: 700;
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .log-box {
+            font-family: "Courier New", Courier, monospace;
+            font-size: 0.8rem;
+            color: #38bdf8;
+            height: 110px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .log-entry {
+            line-height: 1.3;
+            word-break: break-all;
+        }
+
+        .log-entry.barcode { color: #34d399; }
+        .log-entry.ocr { color: #fbbf24; }
+        .log-entry.error { color: #f87171; }
+    </style>
+
+    <!-- Quagga2 Barcode Fallback Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.min.js"></script>
+    <!-- Tesseract.js OCR Engine -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+</head>
+<body>
+
+<header>
+    <h1>AI-POS Hybrid Vision Engine</h1>
+    <p>Live Barcode & Packaging OCR Pipeline</p>
+</header>
+
+<div class="viewport-wrapper">
+    <div class="status-badge">
+        <div class="dot" id="statusDot"></div>
+        <span id="statusText">Offline</span>
+    </div>
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="overlayCanvas"></canvas>
+</div>
+
+<div class="controls">
+    <button id="btnStart" class="btn-primary">
+        <span>📷 Start Live Cam</span>
+    </button>
+    <label for="fileFallback" class="btn-fallback">
+        <span>📁 High-Res Capture</span>
+    </label>
+    <input type="file" id="fileFallback" accept="image/*" capture="environment">
+</div>
+
+<div class="console-panel">
+    <div class="console-header">
+        <span>System Diagnostics Log</span>
+        <span id="fpsCounter">0 FPS</span>
+    </div>
+    <div class="log-box" id="logBox">
+        <div class="log-entry">> Initializing modules...</div>
+    </div>
+</div>
+
+<script>
+    const video = document.getElementById('video');
+    const overlayCanvas = document.getElementById('overlayCanvas');
+    const ctx = overlayCanvas.getContext('2d');
+    const logBox = document.getElementById('logBox');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const fileFallback = document.getElementById('fileFallback');
+    
+    let isOcrProcessing = false;
+    let ocrWorker = null;
+    let barcodeDetector = null;
+    let activeStream = null;
+    let lastFrameTime = performance.now();
+    let frameCount = 0;
+
+    function log(msg, type = 'info') {
+        const entry = document.createElement('div');
+        entry.className = `log-entry ${type}`;
+        const time = new Date().toLocaleTimeString().split(' ')[0];
+        entry.textContent = `[${time}] ${msg}`;
+        logBox.appendChild(entry);
+        logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    // 1. Initialize Native BarcodeDetector or Quagga
+    async function initBarcodeDetector() {
+        if ('BarcodeDetector' in window) {
+            try {
+                const formats = await BarcodeDetector.getSupportedFormats();
+                barcodeDetector = new BarcodeDetector({ formats: ['code_128', 'ean_13', 'ean_8', 'upc_a', 'upc_e', 'qr_code'] });
+                log("Native Browser BarcodeDetector Engine Active.");
+            } catch (e) {
+                log("Native BarcodeDetector failed, falling back to Quagga2.", "error");
+            }
+        } else {
+            log("Native BarcodeDetector unavailable. Standard Quagga2 engine ready.");
+        }
+    }
+
+    // 2. Initialize Tesseract.js Worker
+    async function initOCR() {
+        try {
+            log("Loading Tesseract WASM OCR Core...");
+            ocrWorker = await Tesseract.createWorker('eng');
+            log("OCR Engine Loaded & Ready.");
+        } catch (err) {
+            log(`OCR Worker Error: ${err.message}`, 'error');
+        }
+    }
+
+    initBarcodeDetector();
+    initOCR();
+
+    // 3. WebRTC Stream Loader (With HTTPS Checks)
+    async function startCamera() {
+        if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+            log("SECURITY ERROR: WebRTC requires HTTPS or localhost!", "error");
+            alert("WebRTC camera access requires an HTTPS domain or local server.");
+            return;
+        }
+
+        try {
+            if (activeStream) {
+                activeStream.getTracks().forEach(track => track.stop());
+            }
+
+            const constraints = {
+                video: {
+                    facingMode: { ideal: "environment" },
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                },
+                audio: false
+            };
+
+            log("Requesting camera permission...");
+            activeStream = await navigator.mediaDevices.getUserMedia(constraints);
+            video.srcObject = activeStream;
+            
+            video.onloadedmetadata = () => {
+                video.play();
+                syncCanvasDimensions(video.videoWidth, video.videoHeight);
+                
+                statusDot.classList.add('active');
+                statusText.textContent = "Live Feed";
+                log("Live camera feed streaming successfully.");
+                
+                if (!barcodeDetector) {
+                    startQuaggaLive();
+                }
+                
+                requestAnimationFrame(liveProcessingLoop);
+            };
+        } catch (err) {
+            log(`WebRTC Error [${err.name}]: ${err.message}`, "error");
+            statusDot.classList.remove('active');
+            statusText.textContent = "Permission Error";
+        }
+    }
+
+    function syncCanvasDimensions(w, h) {
+        overlayCanvas.width = w;
+        overlayCanvas.height = h;
+    }
+
+    // 4. Live Video Frame Detection Loop
+    async function liveProcessingLoop() {
+        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+            // Update FPS Counter
+            frameCount++;
+            const now = performance.now();
+            if (now - lastFrameTime >= 1000) {
+                document.getElementById('fpsCounter').textContent = `${frameCount} FPS`;
+                frameCount = 0;
+                lastFrameTime = now;
+            }
+
+            // Create intermediate canvas for barcode + OCR scan
+            const offscreenCanvas = document.createElement('canvas');
+            offscreenCanvas.width = video.videoWidth;
+            offscreenCanvas.height = video.videoHeight;
+            const oCtx = offscreenCanvas.getContext('2d');
+            oCtx.drawImage(video, 0, 0);
+
+            ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+            let detectedBarcodeBoxes = [];
+
+            // Run Barcode Detection
+            if (barcodeDetector) {
+                try {
+                    const barcodes = await barcodeDetector.detect(offscreenCanvas);
+                    barcodes.forEach(bc => {
+                        const box = bc.boundingBox;
+                        detectedBarcodeBoxes.push(box);
+                        drawRectBox(box.x, box.y, box.width, box.height, `BAR: ${bc.rawValue}`, "#10b981");
+                        log(`Barcode Read: ${bc.rawValue}`, "barcode");
+                    });
+                } catch (e) {
+                    // Ignore transient frame errors
+                }
+            }
+
+            // Run OCR Fallback Loop (Asynchronous to prevent video lag)
+            if (ocrWorker && !isOcrProcessing) {
+                isOcrProcessing = true;
+                
+                // Preprocess frame (Enhance contrast to stop vertical line confusion)
+                const preprocessedCanvas = preprocessImageForOCR(offscreenCanvas);
+
+                ocrWorker.recognize(preprocessedCanvas).then(({ data }) => {
+                    data.words.forEach(word => {
+                        // Filter low-confidence matches or words overlapping existing barcode region
+                        if (word.confidence > 65 && word.text.trim().length > 2) {
+                            const b = word.bbox;
+                            const overlapsBarcode = detectedBarcodeBoxes.some(bbox => 
+                                b.x0 >= bbox.x && b.x1 <= (bbox.x + bbox.width) &&
+                                b.y0 >= bbox.y && b.y1 <= (bbox.y + bbox.height)
+                            );
+
+                            if (!overlapsBarcode) {
+                                drawRectBox(b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0, `${word.text} (${Math.round(word.confidence)}%)`, "#f59e0b");
+                            }
+                        }
+                    });
+                    isOcrProcessing = false;
+                }).catch(() => { isOcrProcessing = false; });
+            }
+        }
+        
+        if (activeStream && activeStream.active) {
+            requestAnimationFrame(liveProcessingLoop);
+        }
+    }
+
+    // 5. Fallback Static High-Res Capture Handler (Fixes Android content:// URIs)
+    fileFallback.addEventListener('change', async (e) => {
+        if (!e.target.files || !e.target.files[0]) return;
+        
+        log("Processing High-Res Captured Photo...");
+        statusDot.classList.add('active');
+        statusText.textContent = "Processing Photo";
+
+        const file = e.target.files[0];
+        
+        // FIX: Convert content:// URI or File Object to Blob URL safely
+        const blobUrl = URL.createObjectURL(file);
+        const img = new Image();
+        img.src = blobUrl;
+
+        img.onload = async () => {
+            syncCanvasDimensions(img.width, img.height);
+            
+            // Render photo on canvas
+            ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+            ctx.drawImage(img, 0, 0);
+
+            // Step A: Attempt Barcode Decoding via Native API or Quagga
+            let barcodeFound = false;
+            if (barcodeDetector) {
+                try {
+                    const barcodes = await barcodeDetector.detect(img);
+                    barcodes.forEach(bc => {
+                        barcodeFound = true;
+                        const box = bc.boundingBox;
+                        drawRectBox(box.x, box.y, box.width, box.height, `BARCODE: ${bc.rawValue}`, "#10b981");
+                        log(`STATIC BARCODE FOUND: ${bc.rawValue}`, "barcode");
+                    });
+                } catch (err) {
+                    log("Native barcode scan failed on static photo.", "error");
+                }
+            }
+
+            if (!barcodeFound) {
+                // Fallback static Quagga decode
+                Quagga.decodeSingle({
+                    src: blobUrl,
+                    numOfWorkers: 0,
+                    inputStream: { size: img.width },
+                    decoder: { readers: ["code_128_reader", "ean_reader", "ean_8_reader", "upc_reader"] }
+                }, (result) => {
+                    if (result && result.codeResult) {
+                        log(`QUAGGA BARCODE FOUND: ${result.codeResult.code}`, "barcode");
+                        if (result.boxes) {
+                            drawPointsBox(result.boxes.find(b => b), `BAR: ${result.codeResult.code}`, "#10b981");
+                        }
+                    } else {
+                        log("No standard barcode pattern detected in image.");
+                    }
+                });
+            }
+
+            // Step B: Run High-Contrast OCR for Packaging Text
+            if (ocrWorker) {
+                log("Running High-Contrast Packaging OCR...");
+                const preprocessedCanvas = preprocessImageForOCR(img);
+                
+                const { data } = await ocrWorker.recognize(preprocessedCanvas);
+                let detectedCount = 0;
+
+                data.words.forEach(word => {
+                    if (word.confidence > 55 && word.text.trim().length > 1) {
+                        detectedCount++;
+                        const b = word.bbox;
+                        drawRectBox(b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0, `${word.text} (${Math.round(word.confidence)}%)`, "#00ffcc");
+                    }
+                });
+                log(`OCR Processing Complete. Identified ${detectedCount} text segments.`, "ocr");
+            }
+
+            // Revoke object URL to prevent memory leaks
+            URL.revokeObjectURL(blobUrl);
+            statusText.textContent = "Capture Complete";
+        };
+    });
+
+    // 6. Preprocessing Filter: Grayscale + Binarization (Solves false 111 Barcode Reads)
+    function preprocessImageForOCR(imageSource) {
+        const procCanvas = document.createElement('canvas');
+        procCanvas.width = imageSource.width || imageSource.videoWidth;
+        procCanvas.height = imageSource.height || imageSource.videoHeight;
+        const pCtx = procCanvas.getContext('2d');
+        
+        pCtx.drawImage(imageSource, 0, 0);
+        
+        const imgData = pCtx.getImageData(0, 0, procCanvas.width, procCanvas.height);
+        const data = imgData.data;
+
+        // Apply Thresholding Filter to separate packaging text from reflections
+        for (let i = 0; i < data.length; i += 4) {
+            const brightness = (data[i] * 0.299) + (data[i + 1] * 0.587) + (data[i + 2] * 0.114);
+            const binary = brightness > 130 ? 255 : 0;
+            data[i] = binary;     // Red
+            data[i + 1] = binary; // Green
+            data[i + 2] = binary; // Blue
+        }
+
+        pCtx.putImageData(imgData, 0, 0);
+        return procCanvas;
+    }
+
+    // 7. Bounding Box & Corner Text Tag Rendering
+    function drawRectBox(x, y, w, h, text, color) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        ctx.strokeRect(x, y, w, h);
+
+        ctx.font = "bold 15px -apple-system, sans-serif";
+        const textWidth = ctx.measureText(text).width;
+        const tagHeight = 22;
+        const tagY = y - tagHeight > 0 ? y - tagHeight : y;
+
+        // Corner Tag Background
+        ctx.fillStyle = color;
+        ctx.fillRect(x, tagY, textWidth + 10, tagHeight);
+
+        // Corner Tag Label Text
+        ctx.fillStyle = "#000000";
+        ctx.fillText(text, x + 5, tagY + 16);
+    }
+
+    function drawPointsBox(points, text, color) {
+        if (!points || !points.length) return;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(points[0][0], points[0][1]);
+        points.forEach(p => ctx.lineTo(p[0], p[1]));
+        ctx.closePath();
+        ctx.stroke();
+
+        const x = points[0][0];
+        const y = points[0][1];
+        
+        ctx.font = "bold 15px -apple-system, sans-serif";
+        const textWidth = ctx.measureText(text).width;
+        ctx.fillStyle = color;
+        ctx.fillRect(x, y - 22 > 0 ? y - 22 : y, textWidth + 10, 22);
+
+        ctx.fillStyle = "#000000";
+        ctx.fillText(text, x + 5, y - 22 > 0 ? y - 6 : y + 16);
+    }
+
+    // 8. Quagga Live Streaming Fallback Engine
+    function startQuaggaLive() {
+        Quagga.init({
+            inputStream: {
+                name: "Live",
+                type: "LiveStream",
+                target: video,
+                constraints: { facingMode: "environment" }
+            },
+            decoder: { readers: ["code_128_reader", "ean_reader", "ean_8_reader", "upc_reader"] }
+        }, (err) => {
+            if (err) return log(`Quagga Init Error: ${err}`, "error");
+            Quagga.start();
+        });
+
+        Quagga.onDetected((data) => {
+            if (data && data.codeResult) {
+                const code = data.codeResult.code;
+                const box = data.boxes.find(b => b);
+                if (box) {
+                    drawPointsBox(box, `BARCODE: ${code}`, "#10b981");
+                }
+                log(`Quagga Live Barcode Read: ${code}`, "barcode");
+            }
+        });
+    }
+
+    document.getElementById('btnStart').addEventListener('click', startCamera);
+</script>
+</body>
+</html>
