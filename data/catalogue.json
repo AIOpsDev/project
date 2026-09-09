@@ -1,0 +1,9 @@
+[
+  {"id":"p001","barcode":"8917325207033","name":"Choco Fun Chocolate Sandwich Cream Biscuit","brand":"Reedisha","category":"Biscuits","quantity":"17 g","priceBDT":20,"image":""},
+  {"id":"p002","barcode":"7622210449283","name":"Oreo Original Cookies","brand":"Oreo","category":"Cookies","quantity":"36 g","priceBDT":35,"image":""},
+  {"id":"p003","barcode":"7622300440713","name":"Nescafé Classic Coffee","brand":"Nescafé","category":"Coffee","quantity":"25 g","priceBDT":80,"image":""},
+  {"id":"p004","barcode":"8901030895481","name":"Tata Tea Premium","brand":"Tata Tea","category":"Tea","quantity":"100 g","priceBDT":90,"image":""},
+  {"id":"p005","barcode":"8901719120117","name":"Fresh White Bread","brand":"Fresh","category":"Bread","quantity":"400 g","priceBDT":65,"image":""},
+  {"id":"p006","barcode":"8901030865361","name":"Maggie Tomato Pasta Sauce","brand":"Maggi","category":"Sauce","quantity":"200 g","priceBDT":110,"image":""},
+  {"id":"p007","barcode":"8901030895634","name":"Sunfeast Dark Fantasy Cookies","brand":"Sunfeast","category":"Cookies","quantity":"75 g","priceBDT":50,"image":""}
+]
