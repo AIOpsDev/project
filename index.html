@@ -1,3811 +1,467 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="en" data-theme="corporate">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Checkoutly | AI-Assisted Self-Checkout </title>
-
-  <!-- Inter -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-
-  <!-- Font Awesome food/category icons -->
-  <link rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
-
-  <!-- Tesseract OCR -->
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-
-  <!-- Fuse.js deterministic fuzzy matching -->
-  <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
-
-  <!-- ZXing fallback -->
-  <script src="https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/index.min.js"></script>
-
-  <style>
-    :root{
-      --ink:#17232d;
-      --muted:#64717b;
-      --blue:#185abc;
-      --blue-dark:#124a9c;
-      --blue-soft:#edf4ff;
-      --line:#d8dfe2;
-      --bg:#f4f6f7;
-      --white:#fff;
-      --green:#147a4d;
-      --green-soft:#edf9f3;
-      --warning:#9a6700;
-      --warning-soft:#fff6e5;
-      --danger:#b42318;
-      --danger-soft:#fff0ee;
-      --camera:#0d1c26;
-    }
-
-    *{box-sizing:border-box}
-
-    body{
-      margin:0;
-      background:var(--bg);
-      color:var(--ink);
-      font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
-      -webkit-font-smoothing:antialiased;
-    }
-
-    button,
-    input{
-      font:inherit;
-    }
-
-    button,
-    .file-button{
-      border:0;
-      border-radius:9px;
-      padding:11px 15px;
-      font-size:14px;
-      font-weight:700;
-      cursor:pointer;
-      transition:.15s ease;
-    }
-
-    button:hover,
-    .file-button:hover{
-      transform:translateY(-1px);
-    }
-
-    button:active,
-    .file-button:active{
-      transform:translateY(0);
-    }
-
-    button:disabled{
-      opacity:.45;
-      cursor:not-allowed;
-      transform:none;
-    }
-
-    .primary{
-      background:var(--blue);
-      color:#fff;
-    }
-
-    .primary:hover{
-      background:var(--blue-dark);
-    }
-
-    .success{
-      background:var(--green);
-      color:#fff;
-    }
-
-    .secondary,
-    .file-button{
-      background:#edf0f2;
-      color:var(--ink);
-    }
-
-    .danger{
-      color:var(--danger);
-      background:var(--danger-soft);
-    }
-
-    .hidden{
-      display:none!important;
-    }
-
-    /* HEADER */
-
-    .topbar{
-      height:64px;
-      background:#fff;
-      border-bottom:1px solid var(--line);
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      padding:0 max(22px,calc((100vw - 1240px)/2));
-    }
-
-    .brand{
-      font-size:20px;
-      font-weight:800;
-      letter-spacing:-.04em;
-    }
-
-    .brand b{
-      color:var(--blue);
-    }
-
-    .simulation-pill{
-      font-size:10px;
-      font-weight:800;
-      letter-spacing:.08em;
-      padding:7px 10px;
-      border-radius:999px;
-      background:var(--warning-soft);
-      color:var(--warning);
-      border:1px solid #f3c77a;
-    }
-
-    /* MAIN */
-
-    main{
-      max-width:1240px;
-      margin:0 auto;
-      padding:28px 22px;
-      display:grid;
-      grid-template-columns:minmax(0,1.5fr) minmax(340px,.8fr);
-      gap:24px;
-    }
-
-    .panel{
-      background:#fff;
-      border:1px solid var(--line);
-      border-radius:14px;
-      box-shadow:0 3px 12px #17232d08;
-    }
-
-    .scanner{
-      padding:22px;
-    }
-
-    .eyebrow{
-      font-size:10px;
-      letter-spacing:.13em;
-      font-weight:800;
-      color:var(--blue);
-      text-transform:uppercase;
-    }
-
-    h1{
-      font-size:27px;
-      letter-spacing:-.035em;
-      margin:6px 0;
-    }
-
-    .sub{
-      color:var(--muted);
-      margin:0 0 19px;
-      font-size:14px;
-    }
-
-    /* CAMERA */
-
-    .camera{
-      height:380px;
-      background:var(--camera);
-      border-radius:11px;
-      position:relative;
-      overflow:hidden;
-      display:grid;
-      place-items:center;
-    }
-
-    .camera video,
-    .camera canvas,
-    .camera .preview{
-      position:absolute;
-      inset:0;
-      width:100%;
-      height:100%;
-      object-fit:cover;
-    }
-
-    .camera canvas{
-      z-index:2;
-      pointer-events:none;
-    }
-
-    .scanbox{
-      width:70%;
-      height:45%;
-      border:2px solid #62a7ff;
-      border-radius:12px;
-      position:relative;
-      z-index:3;
-      box-shadow:0 0 0 2000px #0006;
-      pointer-events:none;
-    }
-
-    .scanbox:before,
-    .scanbox:after{
-      content:"";
-      position:absolute;
-      width:22px;
-      height:22px;
-      border-color:#8ec4ff;
-      border-style:solid;
-    }
-
-    .scanbox:before{
-      left:-2px;
-      top:-2px;
-      border-width:3px 0 0 3px;
-      border-radius:8px 0 0 0;
-    }
-
-    .scanbox:after{
-      right:-2px;
-      bottom:-2px;
-      border-width:0 3px 3px 0;
-      border-radius:0 0 8px 0;
-    }
-
-    .scan-label{
-      position:absolute;
-      z-index:4;
-      bottom:18px;
-      left:50%;
-      transform:translateX(-50%);
-      color:#b8d8ff;
-      background:#08151dcc;
-      border:1px solid #ffffff1a;
-      border-radius:999px;
-      padding:7px 11px;
-      font-size:9px;
-      font-weight:800;
-      letter-spacing:.1em;
-      white-space:nowrap;
-    }
-
-    .camera-message{
-      position:relative;
-      z-index:4;
-      color:#e9f3ff;
-      text-align:center;
-      padding:20px;
-      max-width:400px;
-    }
-
-    .camera-message .camera-icon{
-      width:56px;
-      height:56px;
-      margin:0 auto 12px;
-      border-radius:50%;
-      display:grid;
-      place-items:center;
-      background:#ffffff12;
-      border:1px solid #ffffff1c;
-      font-size:22px;
-    }
-
-    .camera-message strong{
-      display:block;
-      font-size:18px;
-      margin-bottom:6px;
-    }
-
-    .camera-message span{
-      color:#9db0bd;
-      font-size:13px;
-    }
-
-    .camera-status{
-      position:absolute;
-      z-index:5;
-      top:14px;
-      left:14px;
-      background:#07131ddd;
-      color:#d7eaff;
-      border:1px solid #ffffff1a;
-      border-radius:7px;
-      padding:7px 9px;
-      font-size:10px;
-      font-weight:800;
-      letter-spacing:.07em;
-    }
-
-    .camera-status.live{
-      color:#b8ffd9;
-    }
-
-    /* ACTIONS */
-
-    .actions{
-      display:flex;
-      gap:9px;
-      margin-top:16px;
-      flex-wrap:wrap;
-    }
-
-    .file-button input{
-      display:none;
-    }
-
-    .mode-buttons{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:9px;
-      margin-top:15px;
-    }
-
-    .mode-button{
-      background:#f5f7f8;
-      border:1px solid var(--line);
-      color:var(--ink);
-      text-align:center;
-      padding:12px;
-    }
-
-    .mode-button.active{
-      background:var(--blue-soft);
-      color:var(--blue);
-      border-color:#b8d4f8;
-    }
-
-    /* RESULT */
-
-    .scan-result{
-      min-height:76px;
-      margin-top:16px;
-      border-radius:9px;
-      padding:13px 15px;
-      background:#f7f9fa;
-      border:1px solid var(--line);
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:14px;
-    }
-
-    .scan-result strong{
-      display:block;
-      font-size:14px;
-    }
-
-    .scan-result small{
-      color:var(--muted);
-      display:block;
-      margin-top:4px;
-      line-height:1.45;
-    }
-
-    .notice{
-      font-size:11px;
-      font-weight:800;
-      color:var(--muted);
-      white-space:nowrap;
-    }
-
-    .notice.success-text{
-      color:var(--green);
-    }
-
-    .notice.warning-text{
-      color:var(--warning);
-    }
-
-    /* RECOGNITION */
-
-    .recognition{
-      margin-top:14px;
-      border:1px solid #c8ddfb;
-      background:#f3f8ff;
-      border-radius:10px;
-      padding:14px;
-    }
-
-    .recognition-head{
-      display:flex;
-      align-items:center;
-      gap:12px;
-    }
-
-    .product-thumb{
-      width:62px;
-      height:62px;
-      border-radius:9px;
-      background:#fff;
-      border:1px solid var(--line);
-      display:grid;
-      place-items:center;
-      overflow:hidden;
-      flex:0 0 auto;
-    }
-
-    .product-thumb img{
-      width:100%;
-      height:100%;
-      object-fit:contain;
-    }
-
-    .product-thumb i{
-      font-size:25px;
-      color:#8b99a2;
-    }
-
-    .recognition-info{
-      min-width:0;
-      flex:1;
-    }
-
-    .recognition-info strong{
-      display:block;
-      font-size:14px;
-    }
-
-    .recognition-info small{
-      display:block;
-      margin-top:4px;
-      color:var(--muted);
-    }
-
-    .confidence{
-      font-size:9px;
-      font-weight:800;
-      color:var(--blue);
-      text-transform:uppercase;
-      letter-spacing:.08em;
-      margin-top:7px;
-    }
-
-    .recognition-actions{
-      display:flex;
-      gap:8px;
-      margin-top:12px;
-    }
-
-    .recognition-actions button{
-      padding:8px 11px;
-      font-size:12px;
-    }
-
-    /* OCR */
-
-    .ocr-progress{
-      margin-top:10px;
-      height:5px;
-      background:#dce7f5;
-      border-radius:99px;
-      overflow:hidden;
-    }
-
-    .ocr-progress div{
-      height:100%;
-      width:0;
-      background:var(--blue);
-      transition:width:.2s ease;
-    }
-
-    /* CART */
-
-    .cart{
-      padding:22px;
-      align-self:start;
-      position:sticky;
-      top:18px;
-    }
-
-    .cart-head{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-    }
-
-    .cart h2{
-      font-size:18px;
-      margin:0;
-    }
-
-    .cart-count{
-      background:var(--blue-soft);
-      color:var(--blue);
-      border-radius:50px;
-      padding:4px 8px;
-      font-size:11px;
-      font-weight:800;
-    }
-
-    .cart-list{
-      margin:17px 0;
-      min-height:165px;
-    }
-
-    .empty{
-      border:1px dashed var(--line);
-      border-radius:9px;
-      color:var(--muted);
-      padding:32px 16px;
-      text-align:center;
-      font-size:13px;
-      line-height:1.5;
-    }
-
-    .cart-row{
-      padding:13px 0;
-      border-bottom:1px solid var(--line);
-      display:grid;
-      grid-template-columns:1fr auto;
-      gap:8px;
-    }
-
-    .cart-row strong{
-      font-size:13px;
-      line-height:1.35;
-    }
-
-    .cart-row small{
-      display:block;
-      color:var(--muted);
-      margin-top:4px;
-    }
-
-    .qty{
-      display:flex;
-      align-items:center;
-      gap:6px;
-      margin-top:9px;
-    }
-
-    .qty button{
-      padding:2px 8px;
-      background:#eef2f5;
-      font-size:15px;
-    }
-
-    .qty b{
-      min-width:20px;
-      text-align:center;
-      font-size:13px;
-    }
-
-    .remove{
-      color:var(--danger);
-      background:none;
-      padding:0 3px;
-      font-size:11px;
-      text-decoration:underline;
-    }
-
-    .line-total{
-      font-weight:800;
-      font-size:13px;
-      white-space:nowrap;
-    }
-
-    .totals{
-      border-top:2px solid var(--ink);
-      padding-top:14px;
-    }
-
-    .total-line{
-      display:flex;
-      justify-content:space-between;
-      font-size:20px;
-      font-weight:850;
-      margin:7px 0 17px;
-    }
-
-    .checkout{
-      width:100%;
-    }
-
-    .clear-cart{
-      width:100%;
-      margin-top:8px;
-    }
-
-    /* RECOMMENDATION */
-
-    .recommendation{
-      margin-top:15px;
-      padding:12px;
-      border-radius:9px;
-      background:#f3f8ff;
-      border:1px solid #c8ddfb;
-      font-size:12px;
-      line-height:1.45;
-    }
-
-    .recommendation strong{
-      color:var(--blue);
-    }
-
-    .recommendation button{
-      margin-top:8px;
-      padding:7px 10px;
-      font-size:11px;
-    }
-
-    /* MODAL */
-
-    .modal{
-      position:fixed;
-      inset:0;
-      background:#10202b99;
-      display:grid;
-      place-items:center;
-      padding:18px;
-      z-index:20;
-    }
-
-    .dialog{
-      max-width:480px;
-      width:100%;
-      background:#fff;
-      border-radius:15px;
-      padding:27px;
-      text-align:center;
-      box-shadow:0 20px 70px #0005;
-    }
-
-    .dialog h2{
-      margin:6px 0 7px;
-      font-size:21px;
-    }
-
-    .dialog p{
-      color:var(--muted);
-      font-size:13px;
-      line-height:1.5;
-    }
-
-    .amount{
-      font-size:34px;
-      font-weight:850;
-      margin:15px;
-    }
-
-    .qr-box{
-      width:190px;
-      height:190px;
-      margin:16px auto;
-      border:1px solid var(--line);
-      border-radius:10px;
-      background:#fff;
-      display:grid;
-      place-items:center;
-      overflow:hidden;
-    }
-
-    .qr-box img{
-      width:150px;
-      height:150px;
-      object-fit:contain;
-    }
-
-    .mock-label{
-      font-size:10px;
-      font-weight:800;
-      letter-spacing:.08em;
-      color:var(--warning);
-      text-transform:uppercase;
-    }
-
-    .payment-note{
-      margin:9px 0 0;
-      font-size:11px!important;
-    }
-
-    /* RECEIPT */
-
-    .receipt{
-      text-align:left;
-    }
-
-    .receipt .receipt-head{
-      text-align:center;
-      border-bottom:1px dashed var(--line);
-      padding-bottom:14px;
-    }
-
-    .receipt-brand{
-      font-size:21px;
-      font-weight:800;
-      letter-spacing:-.04em;
-      margin-bottom:7px;
-    }
-
-    .receipt-brand b{
-      color:var(--blue);
-    }
-
-    .receipt-success{
-      color:var(--green);
-      font-weight:800;
-      font-size:15px;
-    }
-
-    .receipt-meta{
-      font-size:11px;
-      color:var(--muted);
-      line-height:1.7;
-      margin:13px 0;
-    }
-
-    .receipt-items{
-      margin:16px 0;
-    }
-
-    .receipt-item{
-      display:flex;
-      justify-content:space-between;
-      gap:15px;
-      margin:9px 0;
-      font-size:13px;
-    }
-
-    .receipt-item small{
-      color:var(--muted);
-    }
-
-    .receipt-total{
-      border-top:1px dashed var(--line);
-      padding-top:11px;
-      display:flex;
-      justify-content:space-between;
-      font-weight:850;
-      font-size:16px;
-    }
-
-    /* DATABASE STATUS */
-
-    .db-status{
-      margin-top:12px;
-      font-size:10px;
-      color:var(--muted);
-      display:flex;
-      align-items:center;
-      gap:6px;
-    }
-
-    .db-dot{
-      width:7px;
-      height:7px;
-      border-radius:50%;
-      background:#9aa5ab;
-    }
-
-    .db-dot.ready{
-      background:var(--green);
-    }
-
-    /* RESPONSIVE */
-
-    @media(max-width:820px){
-      main{
-        grid-template-columns:1fr;
-        padding:16px;
-      }
-
-      .cart{
-        position:static;
-      }
-
-      .camera{
-        height:310px;
-      }
-
-      .topbar{
-        padding:0 16px;
-      }
-
-      .simulation-pill{
-        font-size:8px;
-      }
-    }
-
-    @media(max-width:520px){
-      .scanner,
-      .cart{
-        padding:16px;
-      }
-
-      h1{
-        font-size:23px;
-      }
-
-      .camera{
-        height:280px;
-      }
-
-      .actions > *{
-        flex:1;
-      }
-
-      .mode-buttons{
-        grid-template-columns:1fr;
-      }
-
-      .recognition-head{
-        align-items:flex-start;
-      }
-    }
-
-    @media print{
-      body > *:not(#receiptModal){
-        display:none!important;
-      }
-
-      .modal{
-        position:static;
-        background:#fff;
-        padding:0;
-      }
-
-      .dialog{
-        box-shadow:none;
-      }
-
-      .no-print{
-        display:none!important;
-      }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>aac.bd - Vision POS</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <!-- Styling Engine (Tailwind CSS & DaisyUI) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" type="text/css" />
+
+    <!-- UI Icons (Lucide) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- TensorFlow.js & COCO-SSD Object Detection -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+
+    <!-- Dynamsoft Barcode Reader CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/dynamsoft-javascript-barcode@9.6.20/dist/dbr.js"></script>
+
+    <!-- Tesseract.js OCR CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+    <style>
+        body { font-family: 'Roboto', sans-serif; }
+        .mono-font { font-family: 'JetBrains Mono', monospace; }
+    </style>
 </head>
-
-<body>
-
-<header class="topbar">
-  <div class="brand">checkout<b>ly</b></div>
-  <span class="simulation-pill">SIMULATION · NO REAL PAYMENTS</span>
-</header>
-
-<main>
-
-  <!-- SCANNER -->
-  <section class="panel scanner">
-
-    <div class="eyebrow">SELF-CHECKOUT TERMINAL</div>
-
-    <h1>Scan a product</h1>
-
-    <p class="sub">
-      Scan a barcode or identify a product from its packaging.
-    </p>
-
-    <div class="camera" id="camera">
-
-      <video id="video" autoplay muted playsinline></video>
-
-      <img id="uploadedPreview"
-           class="preview hidden"
-           alt="Uploaded product preview">
-
-      <canvas id="overlay"></canvas>
-
-      <div class="camera-status" id="cameraStatus">
-        CAMERA OFF
-      </div>
-
-      <div class="scanbox" id="scanBox"></div>
-
-      <div class="camera-message" id="cameraMessage">
-        <div class="camera-icon">
-          <i class="fa-solid fa-camera"></i>
-        </div>
-
-        <strong>Ready to scan</strong>
-
-        <span>
-          Start the live camera or upload a product image.
-        </span>
-      </div>
-
-      <div class="scan-label">
-        ALIGN PRODUCT OR BARCODE HERE
-      </div>
-
-    </div>
-
-    <div class="mode-buttons">
-
-      <button class="mode-button active"
-              id="liveMode">
-        <i class="fa-solid fa-camera"></i>
-        Live Camera
-      </button>
-
-      <label class="file-button mode-button"
-             id="uploadMode">
-        <i class="fa-solid fa-image"></i>
-        Upload Image
-        <input id="imageInput"
-               type="file"
-               accept="image/*"
-               capture="environment">
-      </label>
-
-    </div>
-
-    <div class="actions">
-
-      <button class="primary"
-              id="startCamera">
-        <i class="fa-solid fa-video"></i>
-        Start Camera
-      </button>
-
-      <button class="secondary hidden"
-              id="stopCamera">
-        Stop Camera
-      </button>
-
-      <button class="secondary"
-              id="scanText">
-        <i class="fa-solid fa-font"></i>
-        Read Packaging
-      </button>
-
-      <button class="secondary"
-              id="testScan">
-        Test Scan
-      </button>
-
-    </div>
-
-    <div class="scan-result" id="scanResult">
-
-      <div>
-        <strong id="resultTitle">
-          Ready to scan
-        </strong>
-
-        <small id="resultDetail">
-          Local product data and Open Food Facts are checked before OCR fallback.
-        </small>
-      </div>
-
-      <span class="notice"
-            id="scanStatus">
-        DATABASE READY
-      </span>
-
-    </div>
-
-    <div class="recognition hidden"
-         id="recognitionPanel">
-
-      <div class="recognition-head">
-
-        <div class="product-thumb"
-             id="recognitionImage">
-        </div>
-
-        <div class="recognition-info">
-
-          <strong id="recognitionName">
-            Possible product
-          </strong>
-
-          <small id="recognitionDetails">
-            Product identification
-          </small>
-
-          <div class="confidence"
-               id="recognitionConfidence">
-            POSSIBLE MATCH
-          </div>
-
-        </div>
-
-      </div>
-
-      <div class="recognition-actions">
-
-        <button class="primary"
-                id="confirmRecognition">
-          Add to Cart
-        </button>
-
-        <button class="secondary"
-                id="rejectRecognition">
-          Scan Again
-        </button>
-
-      </div>
-
-    </div>
-
-    <div class="recognition hidden"
-         id="ocrPanel">
-
-      <strong>Reading product packaging...</strong>
-
-      <small id="ocrText">
-        Preparing OCR...
-      </small>
-
-      <div class="ocr-progress">
-        <div id="ocrProgress"></div>
-      </div>
-
-    </div>
-
-    <div class="recommendation hidden"
-         id="recommendation">
-    </div>
-
-    <div class="db-status">
-
-      <span class="db-dot"
-            id="dbDot"></span>
-
-      <span id="dbStatusText">
-        Loading local Open Food Facts data...
-      </span>
-
-    </div>
-
-  </section>
-
-
-  <!-- CART -->
-  <aside class="panel cart">
-
-    <div class="cart-head">
-
-      <h2>Cart</h2>
-
-      <span class="cart-count"
-            id="cartCount">
-        0 items
-      </span>
-
-    </div>
-
-    <div class="cart-list"
-         id="cartList">
-
-      <div class="empty">
-        Your cart is empty.<br>
-        Scan a product to begin.
-      </div>
-
-    </div>
-
-    <div class="totals">
-
-      <div class="total-line">
-
-        <span>Total</span>
-
-        <span id="total">
-          ৳0
-        </span>
-
-      </div>
-
-      <button class="primary checkout"
-              id="checkout"
-              disabled>
-        Checkout
-      </button>
-
-      <button class="secondary clear-cart hidden"
-              id="clearCart">
-        Clear Cart
-      </button>
-
-    </div>
-
-  </aside>
-
-</main>
-
-
-<!-- PAYMENT -->
-<div class="modal hidden"
-     id="paymentModal">
-
-  <section class="dialog">
-
-    <div class="eyebrow">
-      BANGLA QR PAYMENT
-    </div>
-
-    <h2>Ready for payment</h2>
-
-    <p>
-      This screen represents the local Bangla QR payment flow.
-    </p>
-
-    <div class="amount"
-         id="paymentAmount">
-      ৳0
-    </div>
-
-    <div class="qr-box">
-      <img
-        src="https://thumb.wikimedia.org/wikipedia/commons/thumb/4/4c/Bangla_QR_Logo.svg/500px-Bangla_QR_Logo.svg.png"
-        alt="Bangla QR logo">
-    </div>
-
-    <div class="mock-label">
-      MOCK QR · SIMULATED PAYMENT
-    </div>
-
-    <p class="payment-note">
-      No real payment is processed. The QR shown here is a mock visual
-      representing the Bangla QR payment interface.
-    </p>
-
-    <div class="actions no-print"
-         style="justify-content:center">
-
-      <button class="secondary"
-              id="cancelPayment">
-        Back
-      </button>
-
-      <button class="success"
-              id="simulatePayment">
-        Simulate Payment
-      </button>
-
-    </div>
-
-  </section>
-
-</div>
-
-
-<!-- RECEIPT -->
-<div class="modal hidden"
-     id="receiptModal">
-
-  <section class="dialog receipt">
-
-    <div id="receiptContent"></div>
-
-    <div class="actions no-print"
-         style="justify-content:center">
-
-      <button class="secondary"
-              id="newSale">
-        New Sale
-      </button>
-
-      <button class="primary"
-              onclick="window.print()">
-        Print Receipt
-      </button>
-
-    </div>
-
-  </section>
-
-</div>
-
-
-<script>
-
-  /*
-   * ============================================================
-   * CHECKOUTLY
-   * AI-ASSISTED SELF-CHECKOUT & MODULAR POS ENGINE
-   *
-   * DATA SOURCE:
-   *   ./openfoodfacts_data.json
-   *
-   * IMPORTANT:
-   *   Do NOT create data/catalogue.json.
-   *
-   * PRODUCT IDENTITY:
-   *   Open Food Facts local dataset
-   *
-   * STORE PRICE:
-   *   Local POS price mapping
-   *
-   * RECOGNITION:
-   *   Barcode -> OFF -> OCR -> Fuse.js -> category fallback
-   *
-   * NO LLM / NO API REQUIRED
-   * ============================================================
-   */
-
-
-  const state = {
-
-    off: [],
-
-    cart: [],
-
-    stream: null,
-
-    detector: null,
-
-    zxingReader: null,
-
-    scanning: false,
-
-    lastBarcode: "",
-
-    lastScanAt: 0,
-
-    recognitionCandidate: null,
-
-    currentImage: null,
-
-    ocrRunning: false
-
-  };
-
-
-  const COOLDOWN = 1200;
-
-
-  const $ = id => document.getElementById(id);
-
-
-  const money = value =>
-    `৳${Number(value || 0).toLocaleString("en-US")}`;
-
-
-  /*
-   * ------------------------------------------------------------
-   * LOCAL POS PRICES
-   *
-   * These are store prices.
-   * Open Food Facts does NOT determine the selling price.
-   * ------------------------------------------------------------
-   */
-
-  const POS_PRODUCTS = {
-
-    "880196272125": {
-      id: "rc-q-lemon",
-      barcode: "880196272125",
-      name: "RC Q Lemon 500ml",
-      brand: "RC",
-      category: "Beverages",
-      quantity: "500 ml",
-      priceBDT: 35
-    },
-
-    "8917325207033": {
-      id: "p001",
-      barcode: "8917325207033",
-      name: "Choco Fun Chocolate Sandwich Cream Biscuit",
-      brand: "Reedisha",
-      category: "Biscuits",
-      quantity: "17 g",
-      priceBDT: 20
-    },
-
-    "7622210449283": {
-      id: "p002",
-      barcode: "7622210449283",
-      name: "Oreo Original Cookies",
-      brand: "Oreo",
-      category: "Cookies",
-      quantity: "36 g",
-      priceBDT: 35
-    },
-
-    "7622300440713": {
-      id: "p003",
-      barcode: "7622300440713",
-      name: "Nescafé Classic Coffee",
-      brand: "Nescafé",
-      category: "Coffee",
-      quantity: "25 g",
-      priceBDT: 80
-    },
-
-    "8901030895481": {
-      id: "p004",
-      barcode: "8901030895481",
-      name: "Tata Tea Premium",
-      brand: "Tata Tea",
-      category: "Tea",
-      quantity: "100 g",
-      priceBDT: 90
-    },
-
-    "8901719120117": {
-      id: "p005",
-      barcode: "8901719120117",
-      name: "Fresh White Bread",
-      brand: "Fresh",
-      category: "Bread",
-      quantity: "400 g",
-      priceBDT: 65
-    },
-
-    "8901030865361": {
-      id: "p006",
-      barcode: "8901030865361",
-      name: "Maggi Tomato Pasta Sauce",
-      brand: "Maggi",
-      category: "Sauce",
-      quantity: "200 g",
-      priceBDT: 110
-    }
-
-  };
-
-
-  /*
-   * ------------------------------------------------------------
-   * DETERMINISTIC CATEGORY FALLBACKS
-   *
-   * These are not claims that OCR identified an exact product.
-   * They are controlled prototype fallbacks.
-   * ------------------------------------------------------------
-   */
-
-  const CATEGORY_FALLBACKS = {
-
-    beverage: POS_PRODUCTS["880196272125"],
-    beverages: POS_PRODUCTS["880196272125"],
-    drink: POS_PRODUCTS["880196272125"],
-    drinks: POS_PRODUCTS["880196272125"],
-    "soft drink": POS_PRODUCTS["880196272125"],
-
-    biscuit: POS_PRODUCTS["8917325207033"],
-    biscuits: POS_PRODUCTS["8917325207033"],
-
-    cookie: POS_PRODUCTS["7622210449283"],
-    cookies: POS_PRODUCTS["7622210449283"],
-
-    coffee: POS_PRODUCTS["7622300440713"],
-
-    tea: POS_PRODUCTS["8901030895481"],
-
-    bread: POS_PRODUCTS["8901719120117"],
-
-    sauce: POS_PRODUCTS["8901030865361"],
-
-    pasta: POS_PRODUCTS["8901030865361"]
-
-  };
-
-
-  /*
-   * ------------------------------------------------------------
-   * CATEGORY ICONS
-   * ------------------------------------------------------------
-   */
-
-  function categoryIcon(category = "") {
-
-    const c = category.toLowerCase();
-
-    if (
-      c.includes("beverage") ||
-      c.includes("drink") ||
-      c.includes("juice")
-    ) return "fa-bottle-water";
-
-    if (
-      c.includes("biscuit") ||
-      c.includes("cookie")
-    ) return "fa-cookie-bite";
-
-    if (c.includes("coffee")) return "fa-mug-hot";
-
-    if (c.includes("tea")) return "fa-mug-hot";
-
-    if (c.includes("bread")) return "fa-bread-slice";
-
-    if (
-      c.includes("sauce") ||
-      c.includes("condiment")
-    ) return "fa-jar";
-
-    if (
-      c.includes("pasta") ||
-      c.includes("noodle")
-    ) return "fa-bowl-food";
-
-    if (
-      c.includes("milk") ||
-      c.includes("dairy")
-    ) return "fa-glass-water";
-
-    if (
-      c.includes("snack") ||
-      c.includes("chips")
-    ) return "fa-bowl-food";
-
-    return "fa-utensils";
-
-  }
-
-
-  /*
-   * ------------------------------------------------------------
-   * NORMALIZATION
-   * ------------------------------------------------------------
-   */
-
-  function normalize(value) {
-
-    return String(value || "")
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]+/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-
-  }
-
-
-  function normalizeBarcode(value) {
-
-    return String(value || "")
-      .replace(/\D/g, "");
-
-  }
-
-
-  /*
-   * ------------------------------------------------------------
-   * OPEN FOOD FACTS DATA LOADER
-   *
-   * Handles common array/object formats.
-   * ------------------------------------------------------------
-   */
-
-  async function loadOpenFoodFacts() {
-
-    try {
-
-      const response =
-        await fetch("./openfoodfacts_data.json", {
-          cache: "force-cache"
-        });
-
-      if (!response.ok) {
-        throw new Error("Open Food Facts file not found");
-      }
-
-      const raw = await response.json();
-
-      if (Array.isArray(raw)) {
-
-        state.off = raw;
-
-      } else if (Array.isArray(raw.products)) {
-
-        state.off = raw.products;
-
-      } else if (typeof raw === "object") {
-
-        state.off = Object.values(raw);
-
-      } else {
-
-        state.off = [];
-
-      }
-
-      state.off = state.off
-        .map(normalizeOFFProduct)
-        .filter(Boolean);
-
-      $("dbDot").classList.add("ready");
-
-      $("dbStatusText").textContent =
-        `${state.off.length.toLocaleString()} local Open Food Facts products loaded`;
-
-    } catch (error) {
-
-      console.warn(error);
-
-      state.off = [];
-
-      $("dbStatusText").textContent =
-        "Local product file unavailable. Store catalogue still works.";
-
-    }
-
-  }
-
-
-  function normalizeOFFProduct(product) {
-
-    if (!product || typeof product !== "object") {
-      return null;
-    }
-
-    const barcode =
-      normalizeBarcode(
-        product.code ||
-        product.barcode ||
-        product.ean13 ||
-        product.ean
-      );
-
-    const name =
-      product.product_name ||
-      product.productName ||
-      product.name ||
-      "";
-
-    const brand =
-      product.brands ||
-      product.brand ||
-      "";
-
-    const category =
-      product.main_category_en ||
-      product.main_category ||
-      product.categories_en ||
-      product.category ||
-      "";
-
-    const quantity =
-      product.quantity ||
-      "";
-
-    const image =
-      product.image_url ||
-      product.image_front_url ||
-      product.image_front_url ||
-      "";
-
-    if (!barcode && !name) {
-      return null;
-    }
-
-    return {
-
-      code: barcode,
-
-      product_name: name,
-
-      brands: brand,
-
-      categories_en: category,
-
-      main_category_en: category,
-
-      quantity,
-
-      image_url: image
-
-    };
-
-  }
-
-
-  /*
-   * ------------------------------------------------------------
-   * PRODUCT IMAGE
-   * ------------------------------------------------------------
-   */
-
-  function productImageHTML(product) {
-
-    const image =
-      product?.image_url ||
-      product?.image_front_url ||
-      "";
-
-    if (image) {
-
-      return `
-        <img
-          src="${escapeHTML(image)}"
-          alt="${escapeHTML(product.product_name || product.name || "Product")}"
-          onerror="this.parentElement.innerHTML='<i class=&quot;fa-solid ${categoryIcon(product.categories_en || product.category)}&quot;></i>'"
-        >
-      `;
-
-    }
-
-    return `
-      <i class="fa-solid ${categoryIcon(
-        product?.categories_en ||
-        product?.category ||
-        ""
-      )}"></i>
-    `;
-
-  }
-
-
-  /*
-   * ------------------------------------------------------------
-   * HTML ESCAPE
-   * ------------------------------------------------------------
-   */
-
-  function escapeHTML(value) {
-
-    return String(value ?? "")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
-
-  }
-
-
-  /*
-   * ------------------------------------------------------------
-   * LOCAL PRICE RESOLUTION
-   * ------------------------------------------------------------
-   */
-
-  function getStoreProduct(barcode) {
-
-    return POS_PRODUCTS[
-      normalizeBarcode(barcode)
-    ] || null;
-
-  }
-
-
-  /*
-   * ------------------------------------------------------------
-   * OFF EXACT BARCODE MATCH
-   * ------------------------------------------------------------
-   */
-
-  function findOFFByBarcode(barcode) {
-
-    const code =
-      normalizeBarcode(barcode);
-
-    if (!code) return null;
-
-    return state.off.find(
-      product => product.code === code
-    ) || null;
-
-  }
-
-
-  /*
-   * ------------------------------------------------------------
-   * COMBINE OFF IDENTITY + LOCAL STORE PRICE
-   * ------------------------------------------------------------
-   */
-
-  function enrichWithStorePrice(offProduct) {
-
-    if (!offProduct) return null;
-
-    const store =
-      getStoreProduct(offProduct.code);
-
-    if (!store) {
-
-      return {
-
-        ...offProduct,
-
-        id: `off-${offProduct.code || normalize(offProduct.product_name)}`,
-
-        name:
-          offProduct.product_name ||
-          "Unknown product",
-
-        brand:
-          offProduct.brands || "",
-
-        category:
-          offProduct.main_category_en ||
-          offProduct.categories_en ||
-          "",
-
-        priceBDT: null,
-
-        storePriced: false
-
-      };
-
-    }
-
-    return {
-
-      ...offProduct,
-
-      ...store,
-
-      storePriced: true
-
-    };
-
-  }
-
-
-  /*
-   * ------------------------------------------------------------
-   * BARCODE PIPELINE
-   * ------------------------------------------------------------
-   */
-
-  async function resolveBarcode(code) {
-
-    code = normalizeBarcode(code);
-
-    if (!code) return;
-
-    const now = Date.now();
-
-    if (
-      code === state.lastBarcode &&
-      now - state.lastScanAt < COOLDOWN
-    ) {
-      return;
-    }
-
-    state.lastBarcode = code;
-    state.lastScanAt = now;
-
-    setResult(
-      "Barcode detected",
-      `Checking local store data for ${code}...`,
-      "LOOKUP"
-    );
-
-    /*
-     * 1. LOCAL POS
-     */
-
-    const local =
-      getStoreProduct(code);
-
-    if (local) {
-
-      addProduct(local);
-
-      setResult(
-        "Product added",
-        `${local.name} · ${money(local.priceBDT)}`,
-        "✓ FOUND"
-      );
-
-      beep();
-
-      return;
-
-    }
-
-
-    /*
-     * 2. LOCAL OPEN FOOD FACTS
-     */
-
-    const off =
-      findOFFByBarcode(code);
-
-    if (off) {
-
-      const enriched =
-        enrichWithStorePrice(off);
-
-      if (
-        enriched &&
-        enriched.storePriced &&
-        enriched.priceBDT != null
-      ) {
-
-        addProduct(enriched);
-
-        setResult(
-          "Product found",
-          `${enriched.name} · ${money(enriched.priceBDT)}`,
-          "✓ OFF + POS"
-        );
-
-        beep();
-
-        return;
-
-      }
-
-      /*
-       * Product identity found,
-       * but there is no store price.
-       */
-
-      showRecognition(
-        enriched,
-        "IDENTIFIED · PRICE NOT CONFIGURED"
-      );
-
-      setResult(
-        "Product identified",
-        "Open Food Facts found the product, but no local store price is configured.",
-        "PRICE NEEDED"
-      );
-
-      return;
-
-    }
-
-
-    /*
-     * 3. UNKNOWN BARCODE
-     *
-     * Do NOT immediately fail.
-     */
-
-    setResult(
-      "Product not in local catalogue",
-      "Trying product identification fallback...",
-      "FALLBACK"
-    );
-
-    await fallbackFromBarcode(code);
-
-  }
-
-
-  /*
-   * ------------------------------------------------------------
-   * UNKNOWN BARCODE FALLBACK
-   * ------------------------------------------------------------
-   */
-
-  async function fallbackFromBarcode(code) {
-
-    /*
-     * No external API is required.
-     *
-     * If the local OFF dataset does not contain the barcode,
-     * we proceed to image/OCR recognition.
-     */
-
-    setResult(
-      "Barcode not recognised",
-      "Use the packaging image to identify the product.",
-      "OCR FALLBACK"
-    );
-
-    if (state.currentImage) {
-
-      await runOCR(
-        state.currentImage
-      );
-
-    } else {
-
-      setResult(
-        "Barcode not recognised",
-        "Try another angle or use Upload Image / Read Packaging.",
-        "TRY AGAIN"
-      );
-
-    }
-
-  }
-
-
-  /*
-   * ------------------------------------------------------------
-   * OCR
-   * ------------------------------------------------------------
-   */
-
-  async function runOCR(source) {
-
-    if (
-      state.ocrRunning ||
-      !window.Tesseract
-    ) {
-      return;
-    }
-
-    state.ocrRunning = true;
-
-    $("ocrPanel").classList.remove("hidden");
-
-    $("ocrText").textContent =
-      "Reading product packaging...";
-
-    $("ocrProgress").style.width =
-      "0%";
-
-    try {
-
-      const result =
-        await Tesseract.recognize(
-          source,
-          "eng",
-          {
-            logger: message => {
-
-              if (
-                message.status === "recognizing text" &&
-                typeof message.progress === "number"
-              ) {
-
-                const percent =
-                  Math.round(
-                    message.progress * 100
-                  );
-
-                $("ocrProgress").style.width =
-                  `${percent}%`;
-
-                $("ocrText").textContent =
-                  `Reading packaging... ${percent}%`;
-
-              }
-
-            }
-          }
-        );
-
-      const text =
-        result?.data?.text || "";
-
-      $("ocrProgress").style.width =
-        "100%";
-
-      $("ocrText").textContent =
-        text.trim() ||
-        "No useful text found.";
-
-      if (!text.trim()) {
-
-        showCategoryFallback(
-          "unknown"
-        );
-
-        return;
-
-      }
-
-      resolveOCRText(text);
-
-    } catch (error) {
-
-      console.error(error);
-
-      setResult(
-        "OCR could not read the image",
-        "Try a clearer image or another angle.",
-        "OCR ERROR"
-      );
-
-    } finally {
-
-      state.ocrRunning = false;
-
-      setTimeout(() => {
-        $("ocrPanel").classList.add("hidden");
-      }, 1200);
-
-    }
-
-  }
-
-
-  /*
-   * ------------------------------------------------------------
-   * DETERMINISTIC OCR MATCHING
-   *
-   * OCR text -> Fuse.js -> local OFF dataset
-   *
-   * Fuse.js is fuzzy text matching.
-   * It is NOT object detection.
-   * ------------------------------------------------------------
-   */
-
-  function resolveOCRText(text) {
-
-    const cleaned =
-      normalize(text);
-
-    setResult(
-      "Packaging text found",
-      cleaned.slice(0, 140),
-      "MATCHING"
-    );
-
-
-    /*
-     * Search against local POS products first.
-     */
-
-    const posArray =
-      Object.values(POS_PRODUCTS)
-        .map(product => ({
-          ...product,
-          search:
-            `${product.name} ${product.brand} ${product.category} ${product.quantity}`
-        }));
-
-    const fusePOS =
-      new Fuse(
-        posArray,
-        {
-          keys: ["search", "name", "brand", "category"],
-          threshold: 0.42,
-          includeScore: true,
-          ignoreLocation: true
-        }
-      );
-
-    const posMatches =
-      fusePOS.search(cleaned);
-
-
-    if (posMatches.length) {
-
-      const best =
-        posMatches[0];
-
-      const confidence =
-        1 - best.score;
-
-      if (confidence >= 0.58) {
-
-        showRecognition(
-          best.item,
-          confidence >= 0.78
-            ? "HIGH CONFIDENCE"
-            : "POSSIBLE MATCH",
-          confidence
-        );
-
-        return;
-
-      }
-
-    }
-
-
-    /*
-     * Search Open Food Facts locally.
-     */
-
-    if (state.off.length) {
-
-      const searchable =
-        state.off.map(product => ({
-          ...product,
-
-          search:
-            `${product.product_name || ""} ` +
-            `${product.brands || ""} ` +
-            `${product.categories_en || ""} ` +
-            `${product.main_category_en || ""} ` +
-            `${product.quantity || ""}`
-        }));
-
-      const fuseOFF =
-        new Fuse(
-          searchable,
-          {
-            keys: [
-              "search",
-              "product_name",
-              "brands",
-              "categories_en",
-              "main_category_en"
-            ],
-            threshold: 0.40,
-            includeScore: true,
-            ignoreLocation: true
-          }
-        );
-
-      const matches =
-        fuseOFF.search(cleaned);
-
-      if (matches.length) {
-
-        const best =
-          matches[0];
-
-        const confidence =
-          1 - best.score;
-
-        const enriched =
-          enrichWithStorePrice(
-            best.item
-          );
-
-        if (
-          confidence >= 0.60 &&
-          enriched
-        ) {
-
-          if (
-            enriched.storePriced &&
-            enriched.priceBDT != null
-          ) {
-
-            showRecognition(
-              enriched,
-              confidence >= 0.78
-                ? "HIGH CONFIDENCE"
-                : "POSSIBLE MATCH",
-              confidence
-            );
-
-            return;
-
-          }
-
-          /*
-           * Identity found but price unavailable.
-           * Do not invent price.
-           */
-
-          showRecognition(
-            enriched,
-            "IDENTIFIED · PRICE NOT CONFIGURED",
-            confidence
-          );
-
-          return;
-
-        }
-
-      }
-
-    }
-
-
-    /*
-     * Finally, controlled category fallback.
-     */
-
-    const category =
-      detectCategory(cleaned);
-
-    if (category) {
-
-      showCategoryFallback(
-        category
-      );
-
-      return;
-
-    }
-
-
-    setResult(
-      "Product not confidently identified",
-      "Try a clearer image, another angle, or scan the barcode again.",
-      "RESCAN"
-    );
-
-  }
-
-
-  /*
-   * ------------------------------------------------------------
-   * CATEGORY DETECTION
-   *
-   * This is deterministic.
-   * ------------------------------------------------------------
-   */
-
-  function detectCategory(text) {
-
-    const t =
-      normalize(text);
-
-    const rules = [
-
-      {
-        category: "beverages",
-        words: [
-          "coke",
-          "coca cola",
-          "cola",
-          "pepsi",
-          "sprite",
-          "fanta",
-          "lemon",
-          "drink",
-          "soft drink",
-          "beverage",
-          "soda",
-          "juice",
-          "water",
-          "bottle"
-        ]
-      },
-
-      {
-        category: "biscuits",
-        words: [
-          "biscuit",
-          "biscuits"
-        ]
-      },
-
-      {
-        category: "cookies",
-        words: [
-          "cookie",
-          "cookies",
-          "oreo"
-        ]
-      },
-
-      {
-        category: "coffee",
-        words: [
-          "coffee",
-          "nescafe",
-          "nescafé"
-        ]
-      },
-
-      {
-        category: "tea",
-        words: [
-          "tea",
-          "tata tea"
-        ]
-      },
-
-      {
-        category: "bread",
-        words: [
-          "bread",
-          "loaf"
-        ]
-      },
-
-      {
-        category: "sauce",
-        words: [
-          "sauce",
-          "pasta sauce",
-          "tomato sauce"
-        ]
-      }
-
-    ];
-
-
-    for (const rule of rules) {
-
-      if (
-        rule.words.some(
-          word => t.includes(
-            normalize(word)
-          )
-        )
-      ) {
-
-        return rule.category;
-
-      }
-
-    }
-
-    return null;
-
-  }
-
-
-  /*
-   * ------------------------------------------------------------
-   * CATEGORY FALLBACK
-   * ------------------------------------------------------------
-   */
-
-  function showCategoryFallback(category) {
-
-    const fallback =
-      CATEGORY_FALLBACKS[
-        normalize(category)
-      ];
-
-    if (!fallback) {
-
-      setResult(
-        "Product not identified",
-        "No reliable product or category fallback is available.",
-        "RESCAN"
-      );
-
-      return;
-
-    }
-
-    showRecognition(
-      fallback,
-      "CATEGORY FALLBACK",
-      null,
-      true
-    );
-
-    setResult(
-      "Category identified",
-      `Using the controlled ${fallback.category.toLowerCase()} fallback.`,
-      "FALLBACK"
-    );
-
-  }
-
-
-  /*
-   * ------------------------------------------------------------
-   * RECOGNITION CONFIRMATION
-   * ------------------------------------------------------------
-   */
-
-  function showRecognition(
-    product,
-    confidenceLabel = "POSSIBLE MATCH",
-    confidence = null,
-    categoryFallback = false
-  ) {
-
-    if (!product) return;
-
-    state.recognitionCandidate = {
-      ...product,
-      categoryFallback
-    };
-
-    const name =
-      product.name ||
-      product.product_name ||
-      "Unknown product";
-
-    const brand =
-      product.brand ||
-      product.brands ||
-      "";
-
-    const category =
-      product.category ||
-      product.main_category_en ||
-      product.categories_en ||
-      "";
-
-    const quantity =
-      product.quantity ||
-      "";
-
-    $("recognitionName").textContent =
-      name;
-
-    $("recognitionDetails").textContent =
-      [
-        brand,
-        category,
-        quantity,
-        product.priceBDT != null
-          ? money(product.priceBDT)
-          : "Price not configured"
-      ]
-      .filter(Boolean)
-      .join(" · ");
-
-    $("recognitionConfidence").textContent =
-      confidence != null
-        ? `${confidenceLabel} · ${Math.round(confidence * 100)}%`
-        : confidenceLabel;
-
-    $("recognitionImage").innerHTML =
-      productImageHTML({
-        image_url:
-          product.image_url ||
-          product.image_front_url,
-
-        product_name:
-          name,
-
-        categories_en:
-          category
-      });
-
-    $("recognitionPanel")
-      .classList.remove("hidden");
-
-
-    /*
-     * Don't allow a product with no store price
-     * to enter the cart.
-     */
-
-    const canAdd =
-      product.priceBDT != null &&
-      Number.isFinite(
-        Number(product.priceBDT)
-      );
-
-    $("confirmRecognition").disabled =
-      !canAdd;
-
-    $("confirmRecognition").textContent =
-      canAdd
-        ? "Add to Cart"
-        : "Price Required";
-
-  }
-
-
-  /*
-   * ------------------------------------------------------------
-   * CONFIRM RECOGNITION
-   * ------------------------------------------------------------
-   */
-
-  $("confirmRecognition").onclick =
-    () => {
-
-      const product =
-        state.recognitionCandidate;
-
-      if (!product) return;
-
-      if (
-        product.priceBDT == null
-      ) {
-
-        setResult(
-          "Price not configured",
-          "The product was identified, but the local POS price is unavailable.",
-          "PRICE REQUIRED"
-        );
-
-        return;
-
-      }
-
-      addProduct(product);
-
-      $("recognitionPanel")
-        .classList.add("hidden");
-
-      setResult(
-        "Product added",
-        `${product.name || product.product_name} · ${money(product.priceBDT)}`,
-        "✓ ADDED"
-      );
-
-      beep();
-
-    };
-
-
-  $("rejectRecognition").onclick =
-    () => {
-
-      state.recognitionCandidate =
-        null;
-
-      $("recognitionPanel")
-        .classList.add("hidden");
-
-      setResult(
-        "Ready to scan",
-        "Try another angle or upload a clearer product image.",
-        "SCAN AGAIN"
-      );
-
-    };
-
-
-  /*
-   * ------------------------------------------------------------
-   * CART
-   * ------------------------------------------------------------
-   */
-
-  function addProduct(product) {
-
-    if (
-      !product ||
-      product.priceBDT == null
-    ) {
-      return;
-    }
-
-    const productId =
-      product.id ||
-      product.productId ||
-      product.code ||
-      normalize(product.name || product.product_name);
-
-    const existing =
-      state.cart.find(
-        item => item.productId === productId
-      );
-
-    if (existing) {
-
-      existing.quantity++;
-
-    } else {
-
-      state.cart.push({
-
-        productId,
-
-        barcode:
-          product.barcode ||
-          product.code ||
-          "",
-
-        name:
-          product.name ||
-          product.product_name ||
-          "Unknown product",
-
-        brand:
-          product.brand ||
-          product.brands ||
-          "",
-
-        category:
-          product.category ||
-          product.main_category_en ||
-          product.categories_en ||
-          "",
-
-        image:
-          product.image_url ||
-          product.image_front_url ||
-          "",
-
-        priceBDT:
-          Number(product.priceBDT),
-
-        quantity: 1
-
-      });
-
-    }
-
-    renderCart();
-
-    showRecommendation();
-
-  }
-
-
-  function changeQty(
-    productId,
-    delta
-  ) {
-
-    const item =
-      state.cart.find(
-        item => item.productId === productId
-      );
-
-    if (!item) return;
-
-    item.quantity += delta;
-
-    if (item.quantity < 1) {
-
-      state.cart =
-        state.cart.filter(
-          item => item.productId !== productId
-        );
-
-    }
-
-    renderCart();
-
-    showRecommendation();
-
-  }
-
-
-  function cartTotal() {
-
-    return state.cart.reduce(
-      (sum, item) =>
-        sum +
-        item.priceBDT *
-        item.quantity,
-      0
-    );
-
-  }
-
-
-  function renderCart() {
-
-    const list =
-      $("cartList");
-
-    const count =
-      state.cart.reduce(
-        (sum, item) =>
-          sum + item.quantity,
-        0
-      );
-
-    $("cartCount").textContent =
-      `${count} item${count === 1 ? "" : "s"}`;
-
-    $("total").textContent =
-      money(cartTotal());
-
-    $("checkout").disabled =
-      state.cart.length === 0;
-
-    $("clearCart")
-      .classList.toggle(
-        "hidden",
-        state.cart.length === 0
-      );
-
-
-    if (!state.cart.length) {
-
-      list.innerHTML = `
-        <div class="empty">
-          Your cart is empty.<br>
-          Scan a product to begin.
-        </div>
-      `;
-
-      return;
-
-    }
-
-
-    list.innerHTML =
-      state.cart.map(item => {
-
-        const image =
-          item.image
-            ? `<img
-                src="${escapeHTML(item.image)}"
-                style="width:42px;height:42px;object-fit:contain;border-radius:7px"
-                onerror="this.style.display='none'"
-                alt="">
-              `
-            : `
-              <i
-                class="fa-solid ${categoryIcon(item.category)}"
-                style="font-size:20px;color:#87949d">
-              </i>
-            `;
-
-        return `
-
-          <div class="cart-row">
-
-            <div style="display:flex;gap:10px;min-width:0">
-
-              <div class="product-thumb"
-                   style="width:42px;height:42px">
-                ${image}
-              </div>
-
-              <div style="min-width:0">
-
-                <strong>
-                  ${escapeHTML(item.name)}
-                </strong>
-
-                <small>
-                  ${money(item.priceBDT)} each
-                </small>
-
-                <div class="qty">
-
-                  <button
-                    aria-label="Decrease quantity"
-                    data-id="${escapeHTML(item.productId)}"
-                    data-delta="-1">
-                    −
-                  </button>
-
-                  <b>${item.quantity}</b>
-
-                  <button
-                    aria-label="Increase quantity"
-                    data-id="${escapeHTML(item.productId)}"
-                    data-delta="1">
-                    +
-                  </button>
-
-                  <button
-                    class="remove"
-                    data-id="${escapeHTML(item.productId)}"
-                    data-delta="-${item.quantity}">
-                    Remove
-                  </button>
-
+<body class="bg-gray-50 text-gray-800 min-h-[100dvh] antialiased selection:bg-blue-100 selection:text-blue-700">
+
+    <!-- MAIN APPLICATION CONTAINER -->
+    <main id="app" class="max-w-md mx-auto min-h-[100dvh] flex flex-col justify-between p-4 space-y-4">
+        
+        <!-- HEADER SECTION -->
+        <header class="flex items-center justify-between border-b border-gray-200 pb-3">
+            <div class="flex items-center space-x-2">
+                <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm">A</div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight text-gray-900 leading-none">aac.bd</h1>
+                    <span class="text-xs text-gray-500">AI Self Checkout</span>
                 </div>
+            </div>
+            <div class="badge badge-outline text-gray-600 text-xs gap-1 border-gray-300">
+                <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                Ready
+            </div>
+        </header>
 
-              </div>
+        <!-- VIEWPORT CONTAINER -->
+        <section id="viewport-container" class="relative w-full aspect-square bg-gray-100 border-2 border-dashed border-gray-300 rounded-2xl overflow-hidden flex items-center justify-center shadow-inner">
+            <video id="webcam" class="hidden absolute inset-0 w-full h-full object-cover" autoplay playsinline muted></video>
+            <img id="img-preview" class="hidden absolute inset-0 w-full h-full object-contain bg-black/5" alt="Uploaded Viewport" />
+            <canvas id="detection-canvas" class="absolute inset-0 w-full h-full pointer-events-none z-10"></canvas>
+            
+            <div id="viewport-placeholder" class="flex flex-col items-center justify-center p-6 text-center text-gray-400 space-y-2">
+                <i data-lucide="camera" class="w-12 h-12 stroke-[1.5]"></i>
+                <p class="text-sm font-medium text-gray-500">Upload an item image or start live camera</p>
+            </div>
+        </section>
 
+        <!-- CONTROLS BAR -->
+        <section class="grid grid-cols-2 gap-3">
+            <input type="file" id="file-input" accept="image/*" class="hidden" />
+            <button id="btn-upload" class="btn bg-white hover:bg-gray-100 text-gray-700 border-gray-300 font-medium shadow-sm gap-2">
+                <i data-lucide="upload" class="w-4 h-4"></i> Upload Image
+            </button>
+            <button id="btn-camera" class="btn bg-blue-600 hover:bg-blue-700 text-white font-medium border-none shadow-sm gap-2">
+                <i data-lucide="video" class="w-4 h-4"></i> Live Camera
+            </button>
+        </section>
+
+        <!-- LOG TERMINAL -->
+        <section class="bg-gray-900 text-gray-200 rounded-xl p-3 shadow-md mono-font text-xs space-y-1">
+            <div class="flex items-center justify-between text-gray-400 border-b border-gray-800 pb-1 mb-2">
+                <span class="flex items-center gap-1 font-semibold text-[10px] tracking-wider uppercase">
+                    <i data-lucide="terminal" class="w-3 h-3 text-blue-400"></i> Terminal Log
+                </span>
+                <span id="status-indicator" class="text-[10px] text-yellow-400">Initializing Engines...</span>
+            </div>
+            <div id="terminal-logs" class="h-20 overflow-y-auto space-y-1 scrollbar-thin scrollbar-thumb-gray-700 pr-1">
+                <div class="text-gray-500">> System initializing. Waiting for engines...</div>
+            </div>
+        </section>
+
+        <!-- CART SECTION -->
+        <section class="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm space-y-3 flex-1 flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between border-b border-gray-100 pb-2 mb-2">
+                    <h2 class="font-bold text-gray-800 text-sm flex items-center gap-2">
+                        <i data-lucide="shopping-cart" class="w-4 h-4 text-blue-600"></i> Cart Items
+                    </h2>
+                    <span id="cart-count" class="badge bg-blue-50 text-blue-600 border-none font-bold text-xs">0 items</span>
+                </div>
+                <div id="cart-items" class="space-y-2 max-h-36 overflow-y-auto pr-1">
+                    <p id="empty-cart-msg" class="text-xs text-gray-400 text-center py-4">No items added to cart yet.</p>
+                </div>
             </div>
 
-            <span class="line-total">
-              ${money(
-                item.priceBDT *
-                item.quantity
-              )}
-            </span>
+            <div class="pt-2 border-t border-gray-100 space-y-2">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs text-gray-500 font-medium">Total Amount</span>
+                    <span id="cart-total" class="text-base font-bold text-gray-900 mono-font">৳0.00</span>
+                </div>
+                <button id="btn-checkout" class="btn btn-block bg-blue-600 hover:bg-blue-700 text-white border-none shadow-sm font-bold" disabled>
+                    Proceed to Payment
+                </button>
+            </div>
+        </section>
+    </main>
 
-          </div>
+    <!-- PAYMENT MODAL -->
+    <dialog id="modal-payment" class="modal modal-bottom sm:modal-middle">
+        <div class="modal-box bg-white text-gray-800 rounded-t-2xl sm:rounded-2xl p-6">
+            <h3 class="font-bold text-lg border-b border-gray-100 pb-2 mb-4 flex items-center justify-between">
+                Payment Checkout
+                <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost text-gray-400">✕</button></form>
+            </h3>
+            <div class="flex flex-col items-center justify-center space-y-4 py-2">
+                <div class="bg-gray-100 p-4 rounded-xl border border-gray-200">
+                    <div class="w-40 h-40 bg-white border border-gray-300 rounded-lg flex items-center justify-center relative overflow-hidden">
+                        <div class="grid grid-cols-4 gap-2 w-32 h-32 opacity-80">
+                            <div class="bg-gray-900"></div><div class="bg-gray-900"></div><div class="bg-white"></div><div class="bg-gray-900"></div>
+                            <div class="bg-white"></div><div class="bg-gray-900"></div><div class="bg-gray-900"></div><div class="bg-white"></div>
+                            <div class="bg-gray-900"></div><div class="bg-white"></div><div class="bg-gray-900"></div><div class="bg-gray-900"></div>
+                            <div class="bg-gray-900"></div><div class="bg-gray-900"></div><div class="bg-white"></div><div class="bg-gray-900"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-lg font-bold text-gray-900 mono-font">Total Payable: <span id="payment-amount" class="text-blue-600">৳0.00</span></div>
+            </div>
+            <div class="modal-action flex-col gap-2">
+                <button id="btn-confirm-payment" class="btn bg-blue-600 hover:bg-blue-700 text-white border-none w-full font-bold">Simulate Payment</button>
+            </div>
+        </div>
+    </dialog>
 
-        `;
+    <!-- ASCII RECEIPT MODAL -->
+    <dialog id="modal-receipt" class="modal modal-bottom sm:modal-middle">
+        <div class="modal-box bg-white text-gray-900 rounded-t-2xl sm:rounded-2xl p-6">
+            <h3 class="font-bold text-sm text-gray-500 uppercase tracking-wider text-center mb-2">Digital Receipt</h3>
+            <div class="bg-gray-50 border border-gray-200 p-4 rounded-xl shadow-inner">
+                <pre id="ascii-receipt" class="mono-font text-xs leading-relaxed text-gray-800 whitespace-pre overflow-x-auto"></pre>
+            </div>
+            <div class="modal-action flex flex-col gap-2 mt-4">
+                <button id="btn-close-receipt" class="btn bg-gray-900 hover:bg-black text-white border-none w-full font-bold">Close and Reset</button>
+            </div>
+        </div>
+    </dialog>
 
-      }).join("");
+    <!-- SCRIPT ENGINE INVOCATION -->
+    <script type="module">
+        let cocoModel = null;
+        let barcodeReader = null;
+        let cart = [];
+        let isCameraActive = false;
+        let streamRef = null;
 
-
-    list
-      .querySelectorAll("[data-id]")
-      .forEach(button => {
-
-        button.onclick = () => {
-
-          changeQty(
-            button.dataset.id,
-            Number(button.dataset.delta)
-          );
-
+        const priceDatabase = {
+            'bottle': 25.00,
+            'cup': 15.00,
+            'cell phone': 12000.00,
+            'book': 150.00
         };
 
-      });
-
-  }
-
-
-  /*
-   * ------------------------------------------------------------
-   * DETERMINISTIC RECOMMENDATIONS
-   *
-   * No API.
-   * No Gemini.
-   * Always works locally.
-   * ------------------------------------------------------------
-   */
-
-  const RECOMMENDATIONS = {
-
-    coffee: "p002",
-
-    tea: "p001",
-
-    biscuits: "p003",
-
-    cookies: "p003",
-
-    bread: "p006",
-
-    pasta: "p006",
-
-    sauce: "p002",
-
-    beverages: "p001",
-
-    beverage: "p001"
-
-  };
-
-
-  function showRecommendation() {
-
-    const box =
-      $("recommendation");
-
-    if (!state.cart.length) {
-
-      box.classList.add("hidden");
-
-      return;
-
-    }
-
-
-    let recommendation =
-      null;
-
-    let source =
-      null;
-
-
-    for (const item of state.cart) {
-
-      const category =
-        normalize(item.category);
-
-      const targetId =
-        RECOMMENDATIONS[category];
-
-      if (!targetId) continue;
-
-      const target =
-        Object.values(POS_PRODUCTS)
-          .find(
-            product =>
-              product.id === targetId
-          );
-
-      if (!target) continue;
-
-      const alreadyInCart =
-        state.cart.some(
-          cartItem =>
-            cartItem.productId === target.id
-        );
-
-      if (alreadyInCart) continue;
-
-      recommendation =
-        target;
-
-      source =
-        item;
-
-      break;
-
-    }
-
-
-    if (!recommendation) {
-
-      box.classList.add("hidden");
-
-      return;
-
-    }
-
-
-    box.innerHTML = `
-
-      <strong>
-        Smart pairing
-      </strong>
-
-      <br>
-
-      ${escapeHTML(
-        recommendation.name
-      )}
-
-      pairs well with
-
-      ${escapeHTML(
-        source.name
-      )}
-
-      .
-
-      <br>
-
-      <button
-        class="primary"
-        id="addRecommendation">
-        Add ${money(
-          recommendation.priceBDT
-        )}
-      </button>
-
-    `;
-
-    box.classList.remove("hidden");
-
-
-    $("addRecommendation").onclick =
-      () => {
-
-        addProduct(
-          recommendation
-        );
-
-      };
-
-  }
-
-
-  /*
-   * ------------------------------------------------------------
-   * CAMERA
-   * ------------------------------------------------------------
-   */
-
-  async function startCamera() {
-
-    if (
-      !navigator.mediaDevices ||
-      !navigator.mediaDevices.getUserMedia
-    ) {
-
-      setResult(
-        "Camera unavailable",
-        "Use Upload Image instead.",
-        "CAMERA ERROR"
-      );
-
-      return;
-
-    }
-
-
-    try {
-
-      stopCamera();
-
-
-      state.stream =
-        await navigator.mediaDevices.getUserMedia({
-
-          video: {
-
-            facingMode: {
-              ideal: "environment"
-            },
-
-            width: {
-              ideal: 1280
-            },
-
-            height: {
-              ideal: 720
-            }
-
-          },
-
-          audio: false
-
+        // DOM Handles
+        const btnUpload = document.getElementById('btn-upload');
+        const btnCamera = document.getElementById('btn-camera');
+        const fileInput = document.getElementById('file-input');
+        const imgPreview = document.getElementById('img-preview');
+        const webcam = document.getElementById('webcam');
+        const canvas = document.getElementById('detection-canvas');
+        const ctx = canvas.getContext('2d');
+        const placeholder = document.getElementById('viewport-placeholder');
+        const terminalLogs = document.getElementById('terminal-logs');
+        const statusIndicator = document.getElementById('status-indicator');
+        const cartItemsContainer = document.getElementById('cart-items');
+        const emptyCartMsg = document.getElementById('empty-cart-msg');
+        const cartCount = document.getElementById('cart-count');
+        const cartTotal = document.getElementById('cart-total');
+        const btnCheckout = document.getElementById('btn-checkout');
+        const modalPayment = document.getElementById('modal-payment');
+        const modalReceipt = document.getElementById('modal-receipt');
+        const paymentAmount = document.getElementById('payment-amount');
+        const btnConfirmPayment = document.getElementById('btn-confirm-payment');
+        const btnCloseReceipt = document.getElementById('btn-close-receipt');
+        const asciiReceipt = document.getElementById('ascii-receipt');
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if (window.lucide) window.lucide.createIcons();
+            initEngines();
         });
 
+        function addLog(msg, color = 'text-gray-300') {
+            const entry = document.createElement('div');
+            entry.className = color;
+            entry.textContent = `> ${msg}`;
+            terminalLogs.appendChild(entry);
+            terminalLogs.scrollTop = terminalLogs.scrollHeight;
+        }
 
-      $("video").srcObject =
-        state.stream;
+        // Initialize Dynamsoft, Tesseract, & TensorFlow
+        async function initEngines() {
+            try {
+                addLog('Loading COCO-SSD object vision...', 'text-yellow-400');
+                cocoModel = await cocoSsd.load();
+                addLog('COCO-SSD loaded.', 'text-green-400');
 
-      await $("video").play();
+                addLog('Initializing Dynamsoft Barcode Reader...', 'text-yellow-400');
+                Dynamsoft.DBR.BarcodeScanner.license = "DLS2eyJoYW5kc2hha2VDb2RlIjoiMjAwMDAxLTE2NDQwNTE5NjI4MzEiLCJvcmdhbml6YXRpb25JRCI6IjIwMDAwMSJ9"; // Public Trial Key
+                barcodeReader = await Dynamsoft.DBR.BarcodeReader.createInstance();
+                addLog('Dynamsoft Barcode Reader initialized.', 'text-green-400');
 
+                statusIndicator.textContent = 'Engines Ready';
+                statusIndicator.className = 'text-[10px] text-green-400';
+            } catch (err) {
+                statusIndicator.textContent = 'Engine Warning';
+                statusIndicator.className = 'text-[10px] text-yellow-400';
+                addLog('Engine init warning: ' + err.message, 'text-yellow-400');
+            }
+        }
 
-      $("cameraMessage")
-        .classList.add("hidden");
+        btnUpload.addEventListener('click', () => {
+            stopCamera();
+            fileInput.click();
+        });
 
-      $("uploadedPreview")
-        .classList.add("hidden");
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
 
-      $("cameraStatus").textContent =
-        "LIVE · SCANNING";
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                imgPreview.src = event.target.result;
+                imgPreview.classList.remove('hidden');
+                webcam.classList.add('hidden');
+                placeholder.classList.add('hidden');
 
-      $("cameraStatus")
-        .classList.add("live");
+                imgPreview.onload = () => {
+                    canvas.width = imgPreview.clientWidth;
+                    canvas.height = imgPreview.clientHeight;
+                    addLog(`Processing uploaded image: ${file.name}`);
+                    processImagePipeline(imgPreview);
+                };
+            };
+            reader.readAsDataURL(file);
+        });
 
-      $("startCamera")
-        .classList.add("hidden");
+        async function processImagePipeline(imageElement) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      $("stopCamera")
-        .classList.remove("hidden");
+            // 1. COCO-SSD Object Detection Pass
+            if (cocoModel) {
+                const predictions = await cocoModel.detect(imageElement);
+                drawBoxes(predictions);
+                predictions.forEach(p => {
+                    if (p.score >= 0.6) addItemToCart(p.class);
+                });
+            }
 
-      $("liveMode")
-        .classList.add("active");
+            // 2. Dynamsoft Barcode Detection Pass
+            if (barcodeReader) {
+                try {
+                    addLog('Scanning for barcodes via Dynamsoft...');
+                    const results = await barcodeReader.decode(imageElement);
+                    for (let result of results) {
+                        addLog(`Dynamsoft Barcode Decoded: [${result.barcodeText}]`, 'text-blue-400');
+                        addItemToCart(`Barcode (${result.barcodeText})`);
+                    }
+                } catch (e) {
+                    addLog('Dynamsoft barcode scan pass completed.');
+                }
+            }
 
-      $("uploadMode")
-        .classList.remove("active");
+            // 3. Simple Tesseract OCR Pass
+            try {
+                addLog('Running simple Tesseract OCR pass...');
+                const ocrResult = await Tesseract.recognize(imageElement, 'eng');
+                const cleanText = ocrResult.data.text.trim().replace(/\n/g, ' ');
+                if (cleanText.length > 0) {
+                    addLog(`Tesseract OCR Text: "${cleanText.substring(0, 30)}..."`, 'text-yellow-300');
+                }
+            } catch (err) {
+                addLog('OCR pass skipped.', 'text-gray-500');
+            }
+        }
 
+        btnCamera.addEventListener('click', async () => {
+            if (isCameraActive) stopCamera();
+            else await startCamera();
+        });
 
-      setResult(
-        "Camera ready",
-        "Looking for a barcode...",
-        "SCANNING"
-      );
+        async function startCamera() {
+            try {
+                imgPreview.classList.add('hidden');
+                placeholder.classList.add('hidden');
+                webcam.classList.remove('hidden');
 
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                webcam.srcObject = stream;
+                streamRef = stream;
+                isCameraActive = true;
+                btnCamera.textContent = 'Stop Camera';
+                btnCamera.classList.replace('bg-blue-600', 'bg-red-600');
 
-      /*
-       * Create BarcodeDetector ONCE.
-       */
+                webcam.onloadedmetadata = () => {
+                    canvas.width = webcam.clientWidth;
+                    canvas.height = webcam.clientHeight;
+                    detectFrame();
+                };
+            } catch (err) {
+                addLog('Camera access unavailable.', 'text-red-400');
+            }
+        }
 
-      if (
-        "BarcodeDetector" in window
-      ) {
+        function stopCamera() {
+            if (streamRef) {
+                streamRef.getTracks().forEach(track => track.stop());
+                streamRef = null;
+            }
+            isCameraActive = false;
+            webcam.classList.add('hidden');
+            btnCamera.textContent = 'Live Camera';
+            if (btnCamera.classList.contains('bg-red-600')) {
+                btnCamera.classList.replace('bg-red-600', 'bg-blue-600');
+            }
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
 
-        try {
+        async function detectFrame() {
+            if (!isCameraActive) return;
 
-          const formats =
-            await BarcodeDetector.getSupportedFormats();
+            if (cocoModel && webcam.readyState === 4) {
+                const predictions = await cocoModel.detect(webcam);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                drawBoxes(predictions);
+                predictions.forEach(p => {
+                    if (p.score >= 0.6) addItemToCart(p.class);
+                });
+            }
+            requestAnimationFrame(detectFrame);
+        }
 
-          const wanted = [
-            "ean_13",
-            "ean_8",
-            "upc_a",
-            "upc_e",
-            "code_128"
-          ];
+        function drawBoxes(predictions) {
+            predictions.forEach(pred => {
+                const [x, y, w, h] = pred.bbox;
+                ctx.strokeStyle = '#eab308';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x, y, w, h);
 
-          const supported =
-            wanted.filter(
-              f => formats.includes(f)
-            );
+                ctx.fillStyle = '#eab308';
+                const label = `${pred.class} (${Math.round(pred.score * 100)}%)`;
+                ctx.font = '12px Roboto, sans-serif';
+                const textWidth = ctx.measureText(label).width;
+                ctx.fillRect(x, y > 20 ? y - 20 : y, textWidth + 8, 20);
 
-          state.detector =
-            new BarcodeDetector({
-              formats:
-                supported.length
-                  ? supported
-                  : undefined
+                ctx.fillStyle = '#000000';
+                ctx.fillText(label, x + 4, y > 20 ? y - 5 : y + 14);
+            });
+        }
+
+        function addItemToCart(name) {
+            const price = priceDatabase[name.toLowerCase()] || 50.00;
+            const existing = cart.find(item => item.name === name);
+
+            if (existing) {
+                existing.qty += 1;
+            } else {
+                cart.push({ name, price, qty: 1 });
+            }
+            renderCart();
+        }
+
+        function renderCart() {
+            cartItemsContainer.innerHTML = '';
+            if (cart.length === 0) {
+                cartItemsContainer.appendChild(emptyCartMsg);
+                cartCount.textContent = '0 items';
+                cartTotal.textContent = '৳0.00';
+                btnCheckout.disabled = true;
+                return;
+            }
+
+            let total = 0, count = 0;
+            cart.forEach((item, index) => {
+                const itemTotal = item.price * item.qty;
+                total += itemTotal;
+                count += item.qty;
+
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between bg-gray-50 p-2 rounded-lg border border-gray-100 text-xs';
+                row.innerHTML = `
+                    <div>
+                        <p class="font-bold text-gray-800 capitalize">${item.name}</p>
+                        <p class="text-gray-400">৳${item.price.toFixed(2)} x ${item.qty}</p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="font-bold text-gray-900 mono-font">৳${itemTotal.toFixed(2)}</span>
+                        <button class="btn btn-xs btn-ghost text-red-500 hover:bg-red-50" onclick="removeItem(${index})">✕</button>
+                    </div>
+                `;
+                cartItemsContainer.appendChild(row);
             });
 
-        } catch {
-
-          state.detector =
-            new BarcodeDetector();
-
+            cartCount.textContent = `${count} item${count > 1 ? 's' : ''}`;
+            cartTotal.textContent = `৳${total.toFixed(2)}`;
+            btnCheckout.disabled = false;
         }
 
-      }
+        window.removeItem = (index) => {
+            cart.splice(index, 1);
+            renderCart();
+        };
 
+        btnCheckout.addEventListener('click', () => {
+            const total = cart.reduce((sum, i) => sum + (i.price * i.qty), 0);
+            paymentAmount.textContent = `৳${total.toFixed(2)}`;
+            modalPayment.showModal();
+        });
 
-      state.scanning = true;
+        btnConfirmPayment.addEventListener('click', () => {
+            modalPayment.close();
+            generateAsciiReceipt();
+            modalReceipt.showModal();
+        });
 
-      scanLoop();
+        function generateAsciiReceipt() {
+            const total = cart.reduce((sum, i) => sum + (i.price * i.qty), 0);
+            let receipt = `=========================================\n`;
+            receipt += `             AAC.BD CHECKOUT             \n`;
+            receipt += `=========================================\n`;
+            receipt += `Date: ${new Date().toLocaleString()}\n`;
+            receipt += `-----------------------------------------\n`;
+            receipt += `Item            Qty   Price     Amount   \n`;
+            receipt += `-----------------------------------------\n`;
 
-    } catch (error) {
+            cart.forEach(item => {
+                const name = item.name.padEnd(14, ' ').substring(0, 14);
+                const qty = item.qty.toString().padStart(3, ' ');
+                const price = item.price.toFixed(0).padStart(7, ' ');
+                const amt = (item.price * item.qty).toFixed(2).padStart(8, ' ');
+                receipt += `${name} ${qty} ৳${price} ৳${amt}\n`;
+            });
 
-      console.error(error);
+            receipt += `-----------------------------------------\n`;
+            receipt += `TOTAL:                   ৳${total.toFixed(2).padStart(9, ' ')}\n`;
+            receipt += `=========================================\n`;
+            receipt += `        THANK YOU FOR SHOPPING!          \n`;
+            receipt += `=========================================\n`;
 
-      stopCamera();
-
-      setResult(
-        "Camera access failed",
-        "Check browser permission or use Upload Image.",
-        "CAMERA ERROR"
-      );
-
-    }
-
-  }
-
-
-  function stopCamera() {
-
-    state.scanning = false;
-
-    if (state.stream) {
-
-      state.stream
-        .getTracks()
-        .forEach(track =>
-          track.stop()
-        );
-
-      state.stream = null;
-
-    }
-
-    $("video").srcObject =
-      null;
-
-    $("cameraStatus").textContent =
-      "CAMERA OFF";
-
-    $("cameraStatus")
-      .classList.remove("live");
-
-    $("startCamera")
-      .classList.remove("hidden");
-
-    $("stopCamera")
-      .classList.add("hidden");
-
-  }
-
-
-  /*
-   * ------------------------------------------------------------
-   * LIVE BARCODE LOOP
-   * ------------------------------------------------------------
-   */
-
-  let lastFrameTime = 0;
-
-  async function scanLoop(timestamp = 0) {
-
-    if (
-      !state.scanning ||
-      !state.stream?.active
-    ) {
-      return;
-    }
-
-
-    /*
-     * Keep detection responsive without
-     * trying to run unnecessary work every frame.
-     */
-
-    if (
-      timestamp - lastFrameTime < 100
-    ) {
-
-      requestAnimationFrame(
-        scanLoop
-      );
-
-      return;
-
-    }
-
-    lastFrameTime = timestamp;
-
-
-    try {
-
-      if (state.detector) {
-
-        const found =
-          await state.detector.detect(
-            $("video")
-          );
-
-        if (found?.length) {
-
-          const barcode =
-            found[0].rawValue;
-
-          if (barcode) {
-
-            await resolveBarcode(
-              barcode
-            );
-
-          }
-
+            asciiReceipt.textContent = receipt;
         }
 
-      } else {
-
-        /*
-         * Browser has no BarcodeDetector.
-         *
-         * ZXing fallback is intentionally
-         * only used when necessary.
-         */
-
-        await scanWithZXing();
-
-      }
-
-    } catch (error) {
-
-      /*
-       * Barcode detection errors should not
-       * kill the camera.
-       */
-
-      console.debug(
-        "Barcode detection:",
-        error
-      );
-
-    }
-
-
-    if (state.scanning) {
-
-      requestAnimationFrame(
-        scanLoop
-      );
-
-    }
-
-  }
-
-
-  /*
-   * ------------------------------------------------------------
-   * ZXING CAMERA FALLBACK
-   * ------------------------------------------------------------
-   */
-
-  let zxingActive = false;
-
-
-  async function scanWithZXing() {
-
-    if (
-      zxingActive ||
-      !window.ZXingBrowser
-    ) {
-      return;
-    }
-
-    zxingActive = true;
-
-    try {
-
-      if (!state.zxingReader) {
-
-        state.zxingReader =
-          new ZXingBrowser.BrowserMultiFormatReader();
-
-      }
-
-      /*
-       * ZXing fallback is used sparingly.
-       * BarcodeDetector remains primary.
-       */
-
-      const result =
-        await state.zxingReader.decodeOnceFromVideoDevice(
-          undefined,
-          $("video")
-        );
-
-      if (result) {
-
-        await resolveBarcode(
-          result.getText()
-        );
-
-      }
-
-    } catch (error) {
-
-      /*
-       * Normal when no barcode is currently visible.
-       */
-
-    } finally {
-
-      zxingActive = false;
-
-    }
-
-  }
-
-
-  /*
-   * ------------------------------------------------------------
-   * IMAGE UPLOAD
-   * ------------------------------------------------------------
-   */
-
-  $("imageInput").onchange =
-    async event => {
-
-      const file =
-        event.target.files?.[0];
-
-      if (!file) return;
-
-
-      stopCamera();
-
-
-      $("liveMode")
-        .classList.remove("active");
-
-      $("uploadMode")
-        .classList.add("active");
-
-
-      const url =
-        URL.createObjectURL(file);
-
-      state.currentImage =
-        file;
-
-
-      $("uploadedPreview").src =
-        url;
-
-      $("uploadedPreview")
-        .classList.remove("hidden");
-
-      $("cameraMessage")
-        .classList.add("hidden");
-
-
-      setResult(
-        "Image loaded",
-        "Looking for a barcode...",
-        "SCANNING"
-      );
-
-
-      await scanUploadedImage(
-        file
-      );
-
-  };
-
-
-  async function scanUploadedImage(file) {
-
-    try {
-
-      if (
-        "BarcodeDetector" in window
-      ) {
-
-        const image =
-          new Image();
-
-        const objectURL =
-          URL.createObjectURL(file);
-
-        await new Promise(
-          (resolve, reject) => {
-
-            image.onload =
-              resolve;
-
-            image.onerror =
-              reject;
-
-            image.src =
-              objectURL;
-
-          }
-        );
-
-        const detector =
-          new BarcodeDetector();
-
-        const found =
-          await detector.detect(
-            image
-          );
-
-        URL.revokeObjectURL(
-          objectURL
-        );
-
-
-        if (found?.length) {
-
-          await resolveBarcode(
-            found[0].rawValue
-          );
-
-          return;
-
-        }
-
-      }
-
-
-      /*
-       * No barcode.
-       * Continue instead of immediately failing.
-       */
-
-      setResult(
-        "No barcode found",
-        "Reading product packaging instead...",
-        "OCR FALLBACK"
-      );
-
-      await runOCR(file);
-
-    } catch (error) {
-
-      console.error(error);
-
-      await runOCR(file);
-
-    }
-
-  }
-
-
-  /*
-   * ------------------------------------------------------------
-   * MANUAL OCR BUTTON
-   * ------------------------------------------------------------
-   */
-
-  $("scanText").onclick =
-    async () => {
-
-      if (!state.currentImage) {
-
-        setResult(
-          "No image available",
-          "Upload a product image first.",
-          "UPLOAD IMAGE"
-        );
-
-        return;
-
-      }
-
-      await runOCR(
-        state.currentImage
-      );
-
-    };
-
-
-  /*
-   * ------------------------------------------------------------
-   * LIVE CAMERA MODE BUTTON
-   * ------------------------------------------------------------
-   */
-
-  $("liveMode").onclick =
-    () => {
-
-      $("liveMode")
-        .classList.add("active");
-
-      $("uploadMode")
-        .classList.remove("active");
-
-      $("uploadedPreview")
-        .classList.add("hidden");
-
-      startCamera();
-
-    };
-
-
-  /*
-   * ------------------------------------------------------------
-   * TEST SCAN
-   *
-   * Uses RC Q Lemon specifically so the
-   * fair presentation always has a deterministic
-   * known product path.
-   * ------------------------------------------------------------
-   */
-
-  $("testScan").onclick =
-    () => {
-
-      resolveBarcode(
-        "880196272125"
-      );
-
-    };
-
-
-  /*
-   * ------------------------------------------------------------
-   * PAYMENT
-   * ------------------------------------------------------------
-   */
-
-  function openPayment() {
-
-    if (!state.cart.length) {
-      return;
-    }
-
-    $("paymentAmount").textContent =
-      money(cartTotal());
-
-    $("paymentModal")
-      .classList.remove("hidden");
-
-  }
-
-
-  function completePayment() {
-
-    if (!state.cart.length) {
-      return;
-    }
-
-
-    const total =
-      cartTotal();
-
-    const transactionId =
-      `SIM-${Math.random()
-        .toString(36)
-        .slice(2,8)
-        .toUpperCase()}`;
-
-    const time =
-      new Date()
-        .toLocaleString();
-
-
-    $("paymentModal")
-      .classList.add("hidden");
-
-
-    $("receiptContent").innerHTML = `
-
-      <div class="receipt-head">
-
-        <div class="receipt-brand">
-          checkout<b>ly</b>
-        </div>
-
-        <div class="receipt-success">
-          Payment Simulated
-        </div>
-
-        <div class="receipt-meta">
-          Bangla QR · Simulated transaction
-        </div>
-
-      </div>
-
-      <div class="receipt-meta">
-
-        Transaction ID:
-        ${escapeHTML(transactionId)}
-
-        <br>
-
-        Date:
-        ${escapeHTML(time)}
-
-        <br>
-
-        Status:
-        SIMULATED
-
-      </div>
-
-      <div class="receipt-items">
-
-        ${state.cart.map(item => `
-
-          <div class="receipt-item">
-
-            <span>
-
-              ${escapeHTML(item.name)}
-
-              <br>
-
-              <small>
-                ${item.quantity}
-                ×
-                ${money(item.priceBDT)}
-              </small>
-
-            </span>
-
-            <b>
-              ${money(
-                item.quantity *
-                item.priceBDT
-              )}
-            </b>
-
-          </div>
-
-        `).join("")}
-
-      </div>
-
-      <div class="receipt-total">
-
-        <span>
-          Total
-        </span>
-
-        <span>
-          ${money(total)}
-        </span>
-
-      </div>
-
-      <p style="
-        text-align:center;
-        font-size:12px;
-        color:#64717b;
-        margin-top:23px
-      ">
-        This receipt belongs to a payment simulation.
-      </p>
-
-    `;
-
-
-    $("receiptModal")
-      .classList.remove("hidden");
-
-
-    beep();
-
-  }
-
-
-  /*
-   * ------------------------------------------------------------
-   * CLEAR / NEW SALE
-   * ------------------------------------------------------------
-   */
-
-  $("clearCart").onclick =
-    () => {
-
-      state.cart = [];
-
-      renderCart();
-
-      showRecommendation();
-
-    };
-
-
-  $("newSale").onclick =
-    () => {
-
-      state.cart = [];
-
-      state.recognitionCandidate =
-        null;
-
-      renderCart();
-
-      showRecommendation();
-
-      $("receiptModal")
-        .classList.add("hidden");
-
-      $("recognitionPanel")
-        .classList.add("hidden");
-
-      setResult(
-        "Ready for next sale",
-        "Scan a product to begin.",
-        "READY"
-      );
-
-    };
-
-
-  $("checkout").onclick =
-    openPayment;
-
-
-  $("cancelPayment").onclick =
-    () => {
-
-      $("paymentModal")
-        .classList.add("hidden");
-
-    };
-
-
-  $("simulatePayment").onclick =
-    completePayment;
-
-
-  /*
-   * ------------------------------------------------------------
-   * RESULT HELPER
-   * ------------------------------------------------------------
-   */
-
-  function setResult(
-    title,
-    detail,
-    status = ""
-  ) {
-
-    $("resultTitle").textContent =
-      title;
-
-    $("resultDetail").textContent =
-      detail;
-
-    $("scanStatus").textContent =
-      status;
-
-    $("scanStatus")
-      .classList.remove(
-        "success-text",
-        "warning-text"
-      );
-
-    if (
-      status.includes("✓") ||
-      status.includes("FOUND") ||
-      status.includes("ADDED")
-    ) {
-
-      $("scanStatus")
-        .classList.add(
-          "success-text"
-        );
-
-    }
-
-    if (
-      status.includes("FALLBACK") ||
-      status.includes("PRICE")
-    ) {
-
-      $("scanStatus")
-        .classList.add(
-          "warning-text"
-        );
-
-    }
-
-  }
-
-
-  /*
-   * ------------------------------------------------------------
-   * BEEP
-   * ------------------------------------------------------------
-   */
-
-  let audioContext = null;
-
-
-  function beep() {
-
-    try {
-
-      if (!audioContext) {
-
-        audioContext =
-          new (
-            window.AudioContext ||
-            window.webkitAudioContext
-          )();
-
-      }
-
-      const oscillator =
-        audioContext.createOscillator();
-
-      const gain =
-        audioContext.createGain();
-
-      oscillator.frequency.value =
-        880;
-
-      gain.gain.setValueAtTime(
-        0.05,
-        audioContext.currentTime
-      );
-
-      oscillator.connect(gain);
-      gain.connect(audioContext.destination);
-
-      oscillator.start();
-
-      oscillator.stop(
-        audioContext.currentTime +
-        0.08
-      );
-
-    } catch {}
-
-  }
-
-
-  /*
-   * ------------------------------------------------------------
-   * INITIALIZATION
-   * ------------------------------------------------------------
-   */
-
-  renderCart();
-
-  loadOpenFoodFacts();
-
-
-  /*
-   * Stop camera before leaving page.
-   */
-
-  window.addEventListener(
-    "beforeunload",
-    stopCamera
-  );
-
-</script>
-
+        btnCloseReceipt.addEventListener('click', () => {
+            modalReceipt.close();
+            cart = [];
+            renderCart();
+            addLog('Checkout completed. Cart reset.', 'text-green-400');
+        });
+    </script>
 </body>
 </html>
