@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-black">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>aac.bd - Spatial Guidance Engine</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts & Icons -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+    <!-- TensorFlow.js & COCO-SSD -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+    <style>
+        body { font-family: 'Google Sans', sans-serif; }
+    </style>
+</head>
+<body class="h-full w-full overflow-hidden text-white bg-black select-none">
+
+    <!-- MAIN VIEWPORT CONTAINER -->
+    <div class="relative w-full h-full flex items-center justify-center bg-black">
+        <video id="webcam" class="hidden absolute inset-0 w-full h-full object-cover" autoplay playsinline muted></video>
+        <video id="video-preview" class="hidden absolute inset-0 w-full h-full object-cover" loop playsinline muted></video>
+        <img id="img-preview" class="hidden absolute inset-0 w-full h-full object-contain" alt="Preview" />
+        
+        <!-- DISPLAY BOUNDING BOX CANVAS -->
+        <canvas id="detection-canvas" class="absolute inset-0 w-full h-full pointer-events-none z-10"></canvas>
+        
+        <!-- INITIAL SETUP / PLACEHOLDER -->
+        <div id="viewport-placeholder" class="z-20 flex flex-col items-center justify-center p-8 text-center bg-black/70 rounded-3xl border border-white/20 backdrop-blur-xl shadow-2xl">
+            <span class="material-symbols-outlined text-6xl text-[#4285F4] mb-4">center_focus_strong</span>
+            <h2 class="text-3xl font-extrabold tracking-tight">aac.bd Spatial Radar</h2>
+            <p class="text-sm text-zinc-300 mt-2 max-w-sm">Launch camera feed or upload media to initiate visual guidance and crowd analytics.</p>
+            
+            <div class="flex items-center gap-3 mt-6">
+                <input type="file" id="file-input" accept="image/*,video/*" class="hidden" />
+                <button id="btn-upload" class="flex items-center gap-2 bg-zinc-900/80 hover:bg-zinc-800 text-white font-semibold px-6 h-12 rounded-full text-xs transition-all border border-white/15 shadow-md">
+                    <span class="material-symbols-outlined text-xl">upload_file</span> Upload Media
+                </button>
+                <button id="btn-camera" class="flex items-center gap-2 bg-[#4285F4] hover:bg-blue-500 text-white font-bold px-7 h-12 rounded-full text-xs shadow-lg transition-all">
+                    <span class="material-symbols-outlined text-xl">videocam</span> Live Camera
+                </button>
+            </div>
+        </div>
+
+        <!-- FLOATING TOP CENTER CONTROLS -->
+        <div class="absolute top-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 bg-black/70 p-2 rounded-full border border-white/20 backdrop-blur-xl shadow-2xl">
+            <button id="btn-quick-upload" class="flex items-center gap-1.5 bg-zinc-900/80 hover:bg-zinc-800 text-white font-semibold px-4 h-10 rounded-full text-xs transition-all border border-white/10">
+                <span class="material-symbols-outlined text-base">upload_file</span> Media
+            </button>
+            <button id="btn-quick-camera" class="flex items-center gap-1.5 bg-[#4285F4] hover:bg-blue-500 text-white font-bold px-5 h-10 rounded-full text-xs transition-all shadow-md">
+                <span class="material-symbols-outlined text-base">videocam</span> Camera
+            </button>
+            <button id="btn-audio-toggle" class="flex items-center justify-center bg-zinc-900/80 hover:bg-zinc-800 text-white h-10 w-10 rounded-full border border-white/10 transition-all">
+                <span class="material-symbols-outlined text-base" id="icon-audio">volume_up</span>
+            </button>
+        </div>
+
+        <!-- ==================== GAME-INSPIRED HUD OVERLAYS ==================== -->
+        
+        <!-- [TOP LEFT] ACTIVE CROWD TELEMETRY CARD -->
+        <div class="absolute top-6 left-6 z-30 bg-black/70 border border-white/20 px-5 py-3 rounded-3xl backdrop-blur-xl shadow-2xl flex items-center justify-between gap-5 min-w-[210px] h-24">
+            <span class="material-symbols-outlined text-4xl text-[#4285F4] bg-blue-500/10 p-2.5 rounded-2xl flex items-center justify-center h-14 w-14 border border-blue-500/20">groups</span>
+            <div class="flex-1 text-right">
+                <div class="text-[11px] font-extrabold text-zinc-300 uppercase tracking-widest leading-none">Active Crowd</div>
+                <div id="hud-active-crowd" class="text-5xl font-black text-white mt-1 tracking-tight leading-none">0</div>
+            </div>
+        </div>
+
+        <!-- [TOP RIGHT] PRIORITY HAZARD TELEMETRY CARD -->
+        <div id="hud-hazard-card" class="absolute top-6 right-6 z-30 bg-black/70 border border-white/20 px-6 py-3 rounded-3xl backdrop-blur-xl shadow-2xl flex flex-col justify-center text-right min-w-[210px] h-24 transition-all duration-300">
+            <div id="hud-hazard-dist" class="text-5xl font-black text-[#34A853] tracking-tight leading-none">--</div>
+            <div id="hud-hazard-desc" class="text-[11px] font-extrabold text-zinc-300 mt-1 uppercase tracking-widest truncate">Path Clear</div>
+        </div>
+
+        <!-- [BOTTOM LEFT] UTTARA UNIVERSITY BRANDING (FULL LOGO BOX, MINIMAL PADDING) -->
+        <div class="absolute bottom-6 left-6 z-30 bg-white/95 border border-white/40 p-2 rounded-3xl backdrop-blur-xl shadow-2xl flex items-center justify-center min-w-[210px] h-24">
+            <img src="https://raw.githubusercontent.com/AIOpsDev/project/refs/heads/main/assets/UU.webp" alt="Uttara University" class="h-14 w-auto object-contain max-w-[190px]" />
+        </div>
+
+        <!-- [BOTTOM CENTER] AAC.BD CTA BUTTON -->
+        <div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 text-center">
+            <a href="https://aac.bd" target="_blank" class="pointer-events-auto flex items-center gap-2.5 bg-black/70 hover:bg-black/90 border border-white/20 px-6 h-12 rounded-full backdrop-blur-xl shadow-2xl group transition-all text-xs font-bold text-white tracking-wider">
+                <span class="material-symbols-outlined text-lg text-[#4285F4]">open_in_new</span>
+                <span>Open on AAC.BD</span>
+            </a>
+        </div>
+
+        <!-- [BOTTOM RIGHT] PASSER-BYS TELEMETRY CARD -->
+        <div class="absolute bottom-6 right-6 z-30 bg-black/70 border border-white/20 px-5 py-3 rounded-3xl backdrop-blur-xl shadow-2xl flex items-center justify-between gap-5 min-w-[210px] h-24">
+            <span class="material-symbols-outlined text-4xl text-[#34A853] bg-emerald-500/10 p-2.5 rounded-2xl flex items-center justify-center h-14 w-14 border border-emerald-500/20">footprint</span>
+            <div class="flex-1 text-right">
+                <div class="text-[11px] font-extrabold text-zinc-300 uppercase tracking-widest leading-none">Passer-Bys</div>
+                <div id="hud-total-passers" class="text-5xl font-black text-[#34A853] mt-1 tracking-tight leading-none">0</div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- GLOBAL APPLICATION LOGIC PIPELINE -->
+    <script type="module">
+        window.cocoModel = null;
+        
+        let isCameraActive = false, isVideoActive = false, streamRef = null, audioMuted = false;
+        let lastSpokenMessage = "", lastSpeechTime = 0;
+        let activePersonCount = 0, totalPasserBys = 0, trackedCentroids = [];
+        let lastInferenceTime = 0;
+
+        const processCanvas = document.createElement('canvas');
+        const processCtx = processCanvas.getContext('2d');
+        processCanvas.width = 640;
+        processCanvas.height = 360;
+
+        const btnUpload = document.getElementById('btn-upload'), btnQuickUpload = document.getElementById('btn-quick-upload');
+        const btnCamera = document.getElementById('btn-camera'), btnQuickCamera = document.getElementById('btn-quick-camera');
+        const btnAudioToggle = document.getElementById('btn-audio-toggle'), iconAudio = document.getElementById('icon-audio');
+        const fileInput = document.getElementById('file-input'), imgPreview = document.getElementById('img-preview');
+        const videoPreview = document.getElementById('video-preview'), webcam = document.getElementById('webcam');
+        const canvas = document.getElementById('detection-canvas'), ctx = canvas.getContext('2d');
+        const placeholder = document.getElementById('viewport-placeholder');
+        
+        const hudActiveCrowd = document.getElementById('hud-active-crowd');
+        const hudTotalPassers = document.getElementById('hud-total-passers');
+        const hudHazardDist = document.getElementById('hud-hazard-dist');
+        const hudHazardDesc = document.getElementById('hud-hazard-desc');
+        const hudHazardCard = document.getElementById('hud-hazard-card');
+
+        const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+        function speak(message, isUrgent = false) {
+            if (audioMuted || !('speechSynthesis' in window)) return;
+            const now = Date.now();
+
+            if (isUrgent) {
+                window.speechSynthesis.cancel();
+            } else if (message === lastSpokenMessage || (now - lastSpeechTime < 3000)) {
+                return;
+            }
+
+            const utterance = new SpeechSynthesisUtterance(message);
+            utterance.rate = 1.0;
+            window.speechSynthesis.speak(utterance);
+            
+            lastSpokenMessage = message;
+            lastSpeechTime = now;
+        }
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            try {
+                window.cocoModel = await cocoSsd.load();
+                console.log("Global COCO-SSD Model Loaded Successfully.");
+            } catch (err) {
+                console.error('Global Model Load Error:', err);
+            }
+        });
+
+        btnAudioToggle.addEventListener('click', () => {
+            audioMuted = !audioMuted;
+            iconAudio.textContent = audioMuted ? 'volume_off' : 'volume_up';
+            btnAudioToggle.classList.toggle('text-red-400', audioMuted);
+        });
+
+        const triggerUpload = () => { stopAllFeeds(); fileInput.click(); };
+        btnUpload.addEventListener('click', triggerUpload);
+        btnQuickUpload.addEventListener('click', triggerUpload);
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const fileUrl = URL.createObjectURL(file);
+            placeholder.classList.add('hidden');
+
+            if (file.type.startsWith('video/')) {
+                imgPreview.classList.add('hidden');
+                videoPreview.src = fileUrl;
+                videoPreview.classList.remove('hidden');
+                videoPreview.play();
+                isVideoActive = true;
+                videoPreview.onloadedmetadata = () => {
+                    canvas.width = videoPreview.clientWidth;
+                    canvas.height = videoPreview.clientHeight;
+                    processMediaLoop(videoPreview);
+                };
+            } else {
+                videoPreview.classList.add('hidden');
+                imgPreview.src = fileUrl;
+                imgPreview.classList.remove('hidden');
+                imgPreview.onload = () => {
+                    canvas.width = imgPreview.clientWidth;
+                    canvas.height = imgPreview.clientHeight;
+                    processSingleFrame(imgPreview);
+                };
+            }
+        });
+
+        const toggleCamera = async () => {
+            if (isCameraActive) stopAllFeeds();
+            else {
+                try {
+                    stopAllFeeds();
+                    placeholder.classList.add('hidden');
+                    webcam.classList.remove('hidden');
+                    streamRef = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
+                    webcam.srcObject = streamRef;
+                    isCameraActive = true;
+                    btnQuickCamera.textContent = 'Stop Camera';
+                    webcam.onloadedmetadata = () => {
+                        canvas.width = webcam.clientWidth;
+                        canvas.height = webcam.clientHeight;
+                        processMediaLoop(webcam);
+                    };
+                } catch (err) { alert('Camera access denied or unreadable.'); }
+            }
+        };
+        btnCamera.addEventListener('click', toggleCamera);
+        btnQuickCamera.addEventListener('click', toggleCamera);
+
+        function stopAllFeeds() {
+            if (streamRef) streamRef.getTracks().forEach(t => t.stop());
+            isCameraActive = isVideoActive = false;
+            webcam.classList.add('hidden');
+            videoPreview.classList.add('hidden');
+            imgPreview.classList.add('hidden');
+            placeholder.classList.remove('hidden');
+            btnQuickCamera.innerHTML = `<span class="material-symbols-outlined text-base">videocam</span> Camera`;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        async function processMediaLoop(element) {
+            if (!isCameraActive && !isVideoActive) return;
+            const now = Date.now();
+            
+            if (window.cocoModel && (element.readyState === 4 || element.readyState === 2)) {
+                if (now - lastInferenceTime > 100) {
+                    lastInferenceTime = now;
+
+                    processCtx.drawImage(element, 0, 0, 640, 360);
+                    const predictions = await window.cocoModel.detect(processCanvas);
+
+                    const scaleX = canvas.width / 640;
+                    const scaleY = canvas.height / 360;
+
+                    const scaledPredictions = predictions.map(p => ({
+                        ...p,
+                        bbox: [p.bbox[0] * scaleX, p.bbox[1] * scaleY, p.bbox[2] * scaleX, p.bbox[3] * scaleY]
+                    }));
+
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    analyzePredictions(scaledPredictions, canvas.width, canvas.height);
+                }
+            }
+            requestAnimationFrame(() => processMediaLoop(element));
+        }
+
+        async function processSingleFrame(imgElement) {
+            if (!window.cocoModel) return;
+            const predictions = await window.cocoModel.detect(imgElement);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            analyzePredictions(predictions, canvas.width, canvas.height);
+        }
+
+        function analyzePredictions(predictions, canvasWidth, canvasHeight) {
+            const detections = predictions.filter(p => p.score >= 0.18);
+            const peopleDetections = detections.filter(p => p.class === 'person');
+            updatePasserByMetrics(peopleDetections);
+
+            const leftBoundary = canvasWidth * 0.33, rightBoundary = canvasWidth * 0.66;
+            let detectedItems = [];
+
+            detections.forEach(item => {
+                const [x, y, width, height] = item.bbox;
+                const centerX = x + (width / 2);
+
+                let calculatedDistance;
+                const boxRatio = (width * height) / (canvasWidth * canvasHeight);
+
+                if (boxRatio > 0.3) {
+                    calculatedDistance = 0.3;
+                } else if (item.class === 'person') {
+                    const widthDistance = (0.23 * canvasWidth) / width;
+                    calculatedDistance = Math.max(0.3, widthDistance);
+                } else {
+                    calculatedDistance = (0.18 * canvasWidth) / width;
+                }
+
+                const formattedDistanceStr = `${calculatedDistance.toFixed(1)} m`;
+
+                let sectorText = "ahead of you";
+                if (centerX < leftBoundary) sectorText = "on your left";
+                else if (centerX > rightBoundary) sectorText = "on your right";
+
+                detectedItems.push({
+                    class: item.class,
+                    distanceNum: parseFloat(calculatedDistance.toFixed(1)),
+                    distanceStr: formattedDistanceStr,
+                    sectorText: sectorText,
+                    bbox: item.bbox
+                });
+
+                let strokeColor = '#4285F4';
+                if (item.class === 'person') {
+                    if (calculatedDistance < 1.0) strokeColor = '#EA4335';
+                    else if (calculatedDistance <= 2.0) strokeColor = '#FBBC04';
+                    else strokeColor = '#34A853';
+                }
+
+                drawSharpBoundingBox(item.bbox, capitalize(item.class), formattedDistanceStr, strokeColor);
+            });
+
+            if (detectedItems.length > 0) {
+                detectedItems.sort((a, b) => a.distanceNum - b.distanceNum);
+                const closest = detectedItems[0];
+
+                hudHazardDist.textContent = closest.distanceStr;
+                hudHazardDesc.textContent = `${capitalize(closest.class)} ${closest.sectorText}`;
+
+                if (closest.distanceNum < 1.0) {
+                    hudHazardDist.style.color = '#EA4335';
+                    hudHazardCard.style.borderColor = '#EA4335';
+                    speak(`Warning! ${capitalize(closest.class)} ${closest.sectorText}, ${closest.distanceStr}.`, true);
+                } else if (closest.distanceNum <= 2.0) {
+                    hudHazardDist.style.color = '#FBBC04';
+                    hudHazardCard.style.borderColor = '#FBBC04';
+                    speak(`${capitalize(closest.class)} ${closest.sectorText}, ${closest.distanceStr}.`);
+                } else {
+                    hudHazardDist.style.color = '#34A853';
+                    hudHazardCard.style.borderColor = '#34A853';
+                    speak(`${capitalize(closest.class)} ${closest.sectorText}, ${closest.distanceStr}.`);
+                }
+            } else {
+                hudHazardDist.textContent = "--";
+                hudHazardDist.style.color = '#34A853';
+                hudHazardDesc.textContent = "Path Clear";
+                hudHazardCard.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+            }
+        }
+
+        function drawSharpBoundingBox(bbox, className, distanceStr, color) {
+            const [x, y, width, height] = bbox;
+            const labelText = width < 70 ? `${className.charAt(0)}: ${distanceStr}` : `${className}: ${distanceStr}`;
+
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3.5;
+            ctx.strokeRect(x, y, width, height);
+
+            ctx.fillStyle = color;
+            ctx.font = '800 15px "Google Sans", sans-serif';
+            const textWidth = ctx.measureText(labelText).width;
+            
+            ctx.fillRect(x, y > 28 ? y - 28 : y, textWidth + 14, 28);
+
+            ctx.fillStyle = color === '#FBBC04' ? '#000000' : '#FFFFFF';
+            ctx.fillText(labelText, x + 7, y > 28 ? y - 9 : y + 19);
+        }
+
+        function updatePasserByMetrics(peopleDetections) {
+            activePersonCount = peopleDetections.length;
+            hudActiveCrowd.textContent = activePersonCount;
+
+            const currentCentroids = peopleDetections.map(p => ({ x: p.bbox[0] + p.bbox[2]/2, y: p.bbox[1] + p.bbox[3]/2 }));
+            let newVisitors = 0;
+
+            currentCentroids.forEach(curr => {
+                let matches = trackedCentroids.some(prev => Math.hypot(curr.x - prev.x, curr.y - prev.y) < 80);
+                if (!matches) newVisitors++;
+            });
+
+            if (trackedCentroids.length === 0 && currentCentroids.length > 0) totalPasserBys += currentCentroids.length;
+            else if (newVisitors > 0 && trackedCentroids.length > 0) totalPasserBys += newVisitors;
+
+            trackedCentroids = currentCentroids;
+            hudTotalPassers.textContent = totalPasserBys;
+        }
+    </script>
+</body>
+</html>
