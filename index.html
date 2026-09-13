@@ -4,46 +4,37 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>aac.bd</title>
-
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-
     <!-- Styling Engine (Tailwind CSS & DaisyUI) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" type="text/css" />
-
     <!-- UI Icons (Lucide) -->
     <script src="https://unpkg.com/lucide@latest"></script>
-
     <!-- TensorFlow.js & COCO-SSD Object Detection -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
-
     <!-- Dynamsoft Barcode Reader CDN -->
     <script src="https://cdn.jsdelivr.net/npm/dynamsoft-javascript-barcode@9.6.20/dist/dbr.js"></script>
-
     <!-- Tesseract.js OCR CDN -->
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-
     <style>
-        .dls-license-dialog, 
-    div[class*="dls-license"] {
-        display: none !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
-    }
+        .dls-license-dialog,
+        div[class*="dls-license"] {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
         body { font-family: 'Roboto', sans-serif; }
         .mono-font { font-family: 'JetBrains Mono', monospace; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 min-h-[100dvh] antialiased selection:bg-blue-100 selection:text-blue-700">
-
     <!-- MAIN APPLICATION CONTAINER -->
     <main id="app" class="max-w-md mx-auto min-h-[100dvh] flex flex-col justify-between p-4 space-y-4">
-        
         <!-- HEADER SECTION -->
         <header class="flex items-center justify-between border-b border-gray-200 pb-3">
             <div class="flex items-center space-x-2">
@@ -53,10 +44,10 @@
                     <span class="text-xs text-gray-500">AI Self Checkout</span>
                 </div>
             </div>
-            <div class="badge badge-outline text-gray-600 text-xs gap-1 border-gray-300">
-                <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
-                Ready
-            </div>
+            <!-- Blind Vision Aid Link Button -->
+            <a href="https://aac.bd/blindhelp" target="_blank" rel="noopener noreferrer" class="btn btn-xs bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 gap-1 font-semibold">
+                <i data-lucide="eye" class="w-3.5 h-3.5"></i> Blind Vision Aid
+            </a>
         </header>
 
         <!-- VIEWPORT CONTAINER -->
@@ -114,6 +105,16 @@
                     <span class="text-xs text-gray-500 font-medium">Total Amount</span>
                     <span id="cart-total" class="text-base font-bold text-gray-900 mono-font">৳0.00</span>
                 </div>
+
+                <!-- AI RECOMMENDATIONS PLACEHOLDER -->
+                <div id="ai-recommendations" class="bg-blue-50/60 border border-blue-100 rounded-xl p-2.5 flex items-center justify-between">
+                    <div class="flex items-center space-x-2">
+                        <i data-lucide="sparkles" class="w-4 h-4 text-blue-600 flex-shrink-0"></i>
+                        <span class="text-xs text-gray-700 font-medium">AI Suggestion: <strong class="text-blue-700 font-bold">Loading...</strong></span>
+                    </div>
+                    <button class="btn btn-xs bg-gray-200 text-gray-400 border-none font-bold cursor-not-allowed" disabled>Add</button>
+                </div>
+
                 <button id="btn-checkout" class="btn btn-block bg-blue-600 hover:bg-blue-700 text-white border-none shadow-sm font-bold" disabled>
                     Proceed to Payment
                 </button>
@@ -129,15 +130,9 @@
                 <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost text-gray-400">✕</button></form>
             </h3>
             <div class="flex flex-col items-center justify-center space-y-4 py-2">
-                <div class="bg-gray-100 p-4 rounded-xl border border-gray-200">
-                    <div class="w-40 h-40 bg-white border border-gray-300 rounded-lg flex items-center justify-center relative overflow-hidden">
-                        <div class="grid grid-cols-4 gap-2 w-32 h-32 opacity-80">
-                            <div class="bg-gray-900"></div><div class="bg-gray-900"></div><div class="bg-white"></div><div class="bg-gray-900"></div>
-                            <div class="bg-white"></div><div class="bg-gray-900"></div><div class="bg-gray-900"></div><div class="bg-white"></div>
-                            <div class="bg-gray-900"></div><div class="bg-white"></div><div class="bg-gray-900"></div><div class="bg-gray-900"></div>
-                            <div class="bg-gray-900"></div><div class="bg-gray-900"></div><div class="bg-white"></div><div class="bg-gray-900"></div>
-                        </div>
-                    </div>
+                <div class="bg-gray-100 p-3 rounded-xl border border-gray-200 flex items-center justify-center">
+                    <!-- BANGLA QR IMAGE (960x1146 Aspect Ratio preserved) -->
+                    <img src="assets/BanglaQR.png" alt="Bangla QR Code" class="w-48 h-auto max-h-60 object-contain rounded-lg shadow-sm" />
                 </div>
                 <div class="text-lg font-bold text-gray-900 mono-font">Total Payable: <span id="payment-amount" class="text-blue-600">৳0.00</span></div>
             </div>
@@ -161,314 +156,350 @@
     </dialog>
 
     <!-- SCRIPT ENGINE INVOCATION -->
-    <script type="module">
-        let cocoModel = null;
-        let barcodeReader = null;
-        let cart = [];
-        let isCameraActive = false;
-        let streamRef = null;
+<script type="module">
+    let cocoModel = null;
+    let barcodeReader = null;
+    let cart = [];
+    let isCameraActive = false;
+    let streamRef = null;
+    let muted = false;
+    let lastMessage = '';
 
-        const priceDatabase = {
-            'bottle': 25.00,
-            'cup': 15.00,
-            'cell phone': 12000.00,
-            'book': 150.00
-        };
+    const priceDatabase = {
+        'bottle': 25.00,
+        'cup': 15.00,
+        'cell phone': 12000.00,
+        'book': 150.00
+    };
 
-        // DOM Handles
-        const btnUpload = document.getElementById('btn-upload');
-        const btnCamera = document.getElementById('btn-camera');
-        const fileInput = document.getElementById('file-input');
-        const imgPreview = document.getElementById('img-preview');
-        const webcam = document.getElementById('webcam');
-        const canvas = document.getElementById('detection-canvas');
-        const ctx = canvas.getContext('2d');
-        const placeholder = document.getElementById('viewport-placeholder');
-        const terminalLogs = document.getElementById('terminal-logs');
-        const statusIndicator = document.getElementById('status-indicator');
-        const cartItemsContainer = document.getElementById('cart-items');
-        const emptyCartMsg = document.getElementById('empty-cart-msg');
-        const cartCount = document.getElementById('cart-count');
-        const cartTotal = document.getElementById('cart-total');
-        const btnCheckout = document.getElementById('btn-checkout');
-        const modalPayment = document.getElementById('modal-payment');
-        const modalReceipt = document.getElementById('modal-receipt');
-        const paymentAmount = document.getElementById('payment-amount');
-        const btnConfirmPayment = document.getElementById('btn-confirm-payment');
-        const btnCloseReceipt = document.getElementById('btn-close-receipt');
-        const asciiReceipt = document.getElementById('ascii-receipt');
+    // DOM Handles
+    const btnUpload = document.getElementById('btn-upload');
+    const btnCamera = document.getElementById('btn-camera');
+    const fileInput = document.getElementById('file-input');
+    const imgPreview = document.getElementById('img-preview');
+    const webcam = document.getElementById('webcam');
+    const canvas = document.getElementById('detection-canvas');
+    const ctx = canvas.getContext('2d');
+    const placeholder = document.getElementById('viewport-placeholder');
+    const terminalLogs = document.getElementById('terminal-logs');
+    const statusIndicator = document.getElementById('status-indicator');
+    const cartItemsContainer = document.getElementById('cart-items');
+    const emptyCartMsg = document.getElementById('empty-cart-msg');
+    const cartCount = document.getElementById('cart-count');
+    const cartTotal = document.getElementById('cart-total');
+    const btnCheckout = document.getElementById('btn-checkout');
+    const modalPayment = document.getElementById('modal-payment');
+    const modalReceipt = document.getElementById('modal-receipt');
+    const paymentAmount = document.getElementById('payment-amount');
+    const btnConfirmPayment = document.getElementById('btn-confirm-payment');
+    const btnCloseReceipt = document.getElementById('btn-close-receipt');
+    const asciiReceipt = document.getElementById('ascii-receipt');
 
-        window.addEventListener('DOMContentLoaded', () => {
-            if (window.lucide) window.lucide.createIcons();
-            initEngines();
-        });
+    // Speech Synthesis Engine with Firefox & Gesture Unlock Fix
+    function speak(message) { 
+        if (muted || !('speechSynthesis' in window)) return; 
+        
+        window.speechSynthesis.cancel(); // Reset active queue
+        const utterance = new SpeechSynthesisUtterance(message); 
+        utterance.rate = 0.92; 
+        utterance.pitch = 0.95; 
 
-        function addLog(msg, color = 'text-gray-300') {
-            const entry = document.createElement('div');
-            entry.className = color;
-            entry.textContent = `> ${msg}`;
-            terminalLogs.appendChild(entry);
-            terminalLogs.scrollTop = terminalLogs.scrollHeight;
+        // Workaround for Firefox voice selection
+        const voices = window.speechSynthesis.getVoices();
+        if (voices.length > 0) {
+            utterance.voice = voices.find(v => v.lang.startsWith('en')) || voices[0];
         }
 
-        // Initialize Dynamsoft, Tesseract, & TensorFlow
-        async function initEngines() {
-            try {
-                addLog('Loading COCO-SSD object vision...', 'text-yellow-400');
-                cocoModel = await cocoSsd.load();
-                addLog('COCO-SSD loaded.', 'text-green-400');
+        window.speechSynthesis.speak(utterance); 
+        lastMessage = message;
+    }
 
-                addLog('Initializing Dynamsoft Barcode Reader...', 'text-yellow-400');
-                Dynamsoft.DBR.BarcodeScanner.license = "DLS2eyJoYW5kc2hha2VDb2RlIjoiMjAwMDAxLTE2NDQwNTE5NjI4MzEiLCJvcmdhbml6YXRpb25JRCI6IjIwMDAwMSJ9"; // Public Trial Key
-                barcodeReader = await Dynamsoft.DBR.BarcodeReader.createInstance();
-                addLog('Dynamsoft Barcode Reader initialized.', 'text-green-400');
-
-                statusIndicator.textContent = 'Engines Ready';
-                statusIndicator.className = 'text-[10px] text-green-400';
-            } catch (err) {
-                statusIndicator.textContent = 'Engine Warning';
-                statusIndicator.className = 'text-[10px] text-yellow-400';
-                addLog('Engine init warning: ' + err.message, 'text-yellow-400');
-            }
+    // Unlock Web Speech API audio context on first click
+    document.body.addEventListener('click', () => {
+        if ('speechSynthesis' in window && window.speechSynthesis.speaking === false) {
+            window.speechSynthesis.resume();
         }
+    }, { once: true });
 
-        btnUpload.addEventListener('click', () => {
-            stopCamera();
-            fileInput.click();
-        });
+    window.addEventListener('DOMContentLoaded', () => {
+        if (window.lucide) window.lucide.createIcons();
+        initEngines();
+    });
 
-        fileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
+    function addLog(msg, color = 'text-gray-300') {
+        const entry = document.createElement('div');
+        entry.className = color;
+        entry.textContent = `> ${msg}`;
+        terminalLogs.appendChild(entry);
+        terminalLogs.scrollTop = terminalLogs.scrollHeight;
+    }
 
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                imgPreview.src = event.target.result;
-                imgPreview.classList.remove('hidden');
-                webcam.classList.add('hidden');
-                placeholder.classList.add('hidden');
-
-                imgPreview.onload = () => {
-                    canvas.width = imgPreview.clientWidth;
-                    canvas.height = imgPreview.clientHeight;
-                    addLog(`Processing uploaded image: ${file.name}`);
-                    processImagePipeline(imgPreview);
-                };
-            };
-            reader.readAsDataURL(file);
-        });
-
-        async function processImagePipeline(imageElement) {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // 1. COCO-SSD Object Detection Pass
-            if (cocoModel) {
-                const predictions = await cocoModel.detect(imageElement);
-                drawBoxes(predictions);
-                predictions.forEach(p => {
-                    if (p.score >= 0.6) addItemToCart(p.class);
-                });
-            }
-
-            // 2. Dynamsoft Barcode Detection Pass
-            if (barcodeReader) {
-                try {
-                    addLog('Scanning for barcodes via Dynamsoft...');
-                    const results = await barcodeReader.decode(imageElement);
-                    for (let result of results) {
-                        addLog(`Dynamsoft Barcode Decoded: [${result.barcodeText}]`, 'text-blue-400');
-                        addItemToCart(`Barcode (${result.barcodeText})`);
-                    }
-                } catch (e) {
-                    addLog('Dynamsoft barcode scan pass completed.');
-                }
-            }
-
-            // 3. Simple Tesseract OCR Pass
-            try {
-                addLog('Running simple Tesseract OCR pass...');
-                const ocrResult = await Tesseract.recognize(imageElement, 'eng');
-                const cleanText = ocrResult.data.text.trim().replace(/\n/g, ' ');
-                if (cleanText.length > 0) {
-                    addLog(`Tesseract OCR Text: "${cleanText.substring(0, 30)}..."`, 'text-yellow-300');
-                }
-            } catch (err) {
-                addLog('OCR pass skipped.', 'text-gray-500');
-            }
+    async function initEngines() {
+        try {
+            addLog('Loading COCO-SSD object vision...', 'text-yellow-400');
+            cocoModel = await cocoSsd.load();
+            addLog('COCO-SSD loaded.', 'text-green-400');
+            addLog('Initializing Dynamsoft Barcode Reader...', 'text-yellow-400');
+            Dynamsoft.DBR.BarcodeScanner.license = "DLS2eyJoYW5kc2hha2VDb2RlIjoiMjAwMDAxLTE2NDQwNTE5NjI4MzEiLCJvcmdhbml6YXRpb25JRCI6IjIwMDAwMSJ9";
+            barcodeReader = await Dynamsoft.DBR.BarcodeReader.createInstance();
+            addLog('Dynamsoft Barcode Reader initialized.', 'text-green-400');
+            statusIndicator.textContent = 'Engines Ready';
+            statusIndicator.className = 'text-[10px] text-green-400';
+        } catch (err) {
+            statusIndicator.textContent = 'Engine Warning';
+            statusIndicator.className = 'text-[10px] text-yellow-400';
+            addLog('Engine init warning: ' + err.message, 'text-yellow-400');
         }
+    }
 
-        btnCamera.addEventListener('click', async () => {
-            if (isCameraActive) stopCamera();
-            else await startCamera();
-        });
+    btnUpload.addEventListener('click', () => {
+        stopCamera();
+        fileInput.click();
+    });
 
-        async function startCamera() {
-            try {
-                imgPreview.classList.add('hidden');
-                placeholder.classList.add('hidden');
-                webcam.classList.remove('hidden');
-
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-                webcam.srcObject = stream;
-                streamRef = stream;
-                isCameraActive = true;
-                btnCamera.textContent = 'Stop Camera';
-                btnCamera.classList.replace('bg-blue-600', 'bg-red-600');
-
-                webcam.onloadedmetadata = () => {
-                    canvas.width = webcam.clientWidth;
-                    canvas.height = webcam.clientHeight;
-                    detectFrame();
-                };
-            } catch (err) {
-                addLog('Camera access unavailable.', 'text-red-400');
-            }
-        }
-
-        function stopCamera() {
-            if (streamRef) {
-                streamRef.getTracks().forEach(track => track.stop());
-                streamRef = null;
-            }
-            isCameraActive = false;
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            imgPreview.src = event.target.result;
+            imgPreview.classList.remove('hidden');
             webcam.classList.add('hidden');
-            btnCamera.textContent = 'Live Camera';
-            if (btnCamera.classList.contains('bg-red-600')) {
-                btnCamera.classList.replace('bg-red-600', 'bg-blue-600');
-            }
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-        }
-
-        async function detectFrame() {
-            if (!isCameraActive) return;
-
-            if (cocoModel && webcam.readyState === 4) {
-                const predictions = await cocoModel.detect(webcam);
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                drawBoxes(predictions);
-                predictions.forEach(p => {
-                    if (p.score >= 0.6) addItemToCart(p.class);
-                });
-            }
-            requestAnimationFrame(detectFrame);
-        }
-
-        function drawBoxes(predictions) {
-            predictions.forEach(pred => {
-                const [x, y, w, h] = pred.bbox;
-                ctx.strokeStyle = '#eab308';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(x, y, w, h);
-
-                ctx.fillStyle = '#eab308';
-                const label = `${pred.class} (${Math.round(pred.score * 100)}%)`;
-                ctx.font = '12px Roboto, sans-serif';
-                const textWidth = ctx.measureText(label).width;
-                ctx.fillRect(x, y > 20 ? y - 20 : y, textWidth + 8, 20);
-
-                ctx.fillStyle = '#000000';
-                ctx.fillText(label, x + 4, y > 20 ? y - 5 : y + 14);
-            });
-        }
-
-        function addItemToCart(name) {
-            const price = priceDatabase[name.toLowerCase()] || 50.00;
-            const existing = cart.find(item => item.name === name);
-
-            if (existing) {
-                existing.qty += 1;
-            } else {
-                cart.push({ name, price, qty: 1 });
-            }
-            renderCart();
-        }
-
-        function renderCart() {
-            cartItemsContainer.innerHTML = '';
-            if (cart.length === 0) {
-                cartItemsContainer.appendChild(emptyCartMsg);
-                cartCount.textContent = '0 items';
-                cartTotal.textContent = '৳0.00';
-                btnCheckout.disabled = true;
-                return;
-            }
-
-            let total = 0, count = 0;
-            cart.forEach((item, index) => {
-                const itemTotal = item.price * item.qty;
-                total += itemTotal;
-                count += item.qty;
-
-                const row = document.createElement('div');
-                row.className = 'flex items-center justify-between bg-gray-50 p-2 rounded-lg border border-gray-100 text-xs';
-                row.innerHTML = `
-                    <div>
-                        <p class="font-bold text-gray-800 capitalize">${item.name}</p>
-                        <p class="text-gray-400">৳${item.price.toFixed(2)} x ${item.qty}</p>
-                    </div>
-                    <div class="flex items-center space-x-2">
-                        <span class="font-bold text-gray-900 mono-font">৳${itemTotal.toFixed(2)}</span>
-                        <button class="btn btn-xs btn-ghost text-red-500 hover:bg-red-50" onclick="removeItem(${index})">✕</button>
-                    </div>
-                `;
-                cartItemsContainer.appendChild(row);
-            });
-
-            cartCount.textContent = `${count} item${count > 1 ? 's' : ''}`;
-            cartTotal.textContent = `৳${total.toFixed(2)}`;
-            btnCheckout.disabled = false;
-        }
-
-        window.removeItem = (index) => {
-            cart.splice(index, 1);
-            renderCart();
+            placeholder.classList.add('hidden');
+            imgPreview.onload = () => {
+                canvas.width = imgPreview.clientWidth;
+                canvas.height = imgPreview.clientHeight;
+                addLog(`Processing uploaded image: ${file.name}`);
+                processImagePipeline(imgPreview);
+            };
         };
+        reader.readAsDataURL(file);
+    });
 
-        btnCheckout.addEventListener('click', () => {
-            const total = cart.reduce((sum, i) => sum + (i.price * i.qty), 0);
-            paymentAmount.textContent = `৳${total.toFixed(2)}`;
-            modalPayment.showModal();
-        });
-
-        btnConfirmPayment.addEventListener('click', () => {
-            modalPayment.close();
-            generateAsciiReceipt();
-            modalReceipt.showModal();
-        });
-
-        function generateAsciiReceipt() {
-            const total = cart.reduce((sum, i) => sum + (i.price * i.qty), 0);
-            let receipt = `=========================================\n`;
-            receipt += `             AAC.BD CHECKOUT             \n`;
-            receipt += `=========================================\n`;
-            receipt += `Date: ${new Date().toLocaleString()}\n`;
-            receipt += `-----------------------------------------\n`;
-            receipt += `Item            Qty   Price     Amount   \n`;
-            receipt += `-----------------------------------------\n`;
-
-            cart.forEach(item => {
-                const name = item.name.padEnd(14, ' ').substring(0, 14);
-                const qty = item.qty.toString().padStart(3, ' ');
-                const price = item.price.toFixed(0).padStart(7, ' ');
-                const amt = (item.price * item.qty).toFixed(2).padStart(8, ' ');
-                receipt += `${name} ${qty} ৳${price} ৳${amt}\n`;
+    async function processImagePipeline(imageElement) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (cocoModel) {
+            const predictions = await cocoModel.detect(imageElement);
+            drawBoxes(predictions);
+            predictions.forEach(p => {
+                if (p.score >= 0.6) addItemToCart(p.class);
             });
-
-            receipt += `-----------------------------------------\n`;
-            receipt += `TOTAL:                   ৳${total.toFixed(2).padStart(9, ' ')}\n`;
-            receipt += `=========================================\n`;
-            receipt += `        THANK YOU FOR SHOPPING!          \n`;
-            receipt += `=========================================\n`;
-
-            asciiReceipt.textContent = receipt;
         }
+        if (barcodeReader) {
+            try {
+                addLog('Scanning for barcodes via Dynamsoft...');
+                const results = await barcodeReader.decode(imageElement);
+                for (let result of results) {
+                    addLog(`Dynamsoft Barcode Decoded: [${result.barcodeText}]`, 'text-blue-400');
+                    addItemToCart(`Barcode (${result.barcodeText})`);
+                }
+            } catch (e) {
+                addLog('Dynamsoft barcode scan pass completed.');
+            }
+        }
+        try {
+            addLog('Running simple Tesseract OCR pass...');
+            const ocrResult = await Tesseract.recognize(imageElement, 'eng');
+            const cleanText = ocrResult.data.text.trim().replace(/\n/g, ' ');
+            if (cleanText.length > 0) {
+                addLog(`Tesseract OCR Text: "${cleanText.substring(0, 30)}..."`, 'text-yellow-300');
+            }
+        } catch (err) {
+            addLog('OCR pass skipped.', 'text-gray-500');
+        }
+    }
 
-        btnCloseReceipt.addEventListener('click', () => {
-            modalReceipt.close();
-            cart = [];
-            renderCart();
-            addLog('Checkout completed. Cart reset.', 'text-green-400');
+    btnCamera.addEventListener('click', async () => {
+        if (isCameraActive) stopCamera();
+        else await startCamera();
+    });
+
+    async function startCamera() {
+        try {
+            imgPreview.classList.add('hidden');
+            placeholder.classList.add('hidden');
+            webcam.classList.remove('hidden');
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+            webcam.srcObject = stream;
+            streamRef = stream;
+            isCameraActive = true;
+            btnCamera.textContent = 'Stop Camera';
+            btnCamera.classList.replace('bg-blue-600', 'bg-red-600');
+            webcam.onloadedmetadata = () => {
+                canvas.width = webcam.clientWidth;
+                canvas.height = webcam.clientHeight;
+                detectFrame();
+            };
+        } catch (err) {
+            addLog('Camera access unavailable.', 'text-red-400');
+        }
+    }
+
+    function stopCamera() {
+        if (streamRef) {
+            streamRef.getTracks().forEach(track => track.stop());
+            streamRef = null;
+        }
+        isCameraActive = false;
+        webcam.classList.add('hidden');
+        btnCamera.textContent = 'Live Camera';
+        if (btnCamera.classList.contains('bg-red-600')) {
+            btnCamera.classList.replace('bg-red-600', 'bg-blue-600');
+        }
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    async function detectFrame() {
+        if (!isCameraActive) return;
+        if (cocoModel && webcam.readyState === 4) {
+            const predictions = await cocoModel.detect(webcam);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBoxes(predictions);
+            predictions.forEach(p => {
+                if (p.score >= 0.6) addItemToCart(p.class);
+            });
+        }
+        requestAnimationFrame(detectFrame);
+    }
+
+    function drawBoxes(predictions) {
+        predictions.forEach(pred => {
+            const [x, y, w, h] = pred.bbox;
+            ctx.strokeStyle = '#eab308';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x, y, w, h);
+            ctx.fillStyle = '#eab308';
+            const label = `${pred.class} (${Math.round(pred.score * 100)}%)`;
+            ctx.font = '12px Roboto, sans-serif';
+            const textWidth = ctx.measureText(label).width;
+            ctx.fillRect(x, y > 20 ? y - 20 : y, textWidth + 8, 20);
+            ctx.fillStyle = '#000000';
+            ctx.fillText(label, x + 4, y > 20 ? y - 5 : y + 14);
         });
-    </script>
+    }
+
+    function addItemToCart(name) {
+        const price = priceDatabase[name.toLowerCase()] || 50.00;
+        const existing = cart.find(item => item.name === name);
+        if (existing) {
+            existing.qty += 1;
+        } else {
+            cart.push({ name, price, qty: 1 });
+            speak(`${name} added to cart`);
+        }
+        renderCart();
+    }
+
+    window.updatePrice = (index, value) => {
+        const newPrice = parseFloat(value);
+        if (!isNaN(newPrice) && newPrice >= 0) {
+            cart[index].price = newPrice;
+            renderCart();
+        }
+    };
+
+    window.updateQty = (index, delta) => {
+        if (cart[index]) {
+            cart[index].qty += delta;
+            if (cart[index].qty <= 0) {
+                cart.splice(index, 1);
+            }
+            renderCart();
+        }
+    };
+
+    window.removeItem = (index) => {
+        cart.splice(index, 1);
+        renderCart();
+    };
+
+    function renderCart() {
+        cartItemsContainer.innerHTML = '';
+        if (cart.length === 0) {
+            cartItemsContainer.appendChild(emptyCartMsg);
+            cartCount.textContent = '0 items';
+            cartTotal.textContent = '৳0.00';
+            btnCheckout.disabled = true;
+            return;
+        }
+        let total = 0, count = 0;
+        cart.forEach((item, index) => {
+            const itemTotal = item.price * item.qty;
+            total += itemTotal;
+            count += item.qty;
+            const row = document.createElement('div');
+            row.className = 'flex items-center justify-between bg-gray-50 p-2 rounded-lg border border-gray-100 text-xs';
+            row.innerHTML = `
+                <div class="flex-1 pr-2">
+                    <p class="font-bold text-gray-800 capitalize">${item.name}</p>
+                    <div class="flex items-center text-gray-500 gap-1 mt-0.5">
+                        <span>৳</span>
+                        <input type="number" min="0" step="1" value="${item.price}" 
+                            onchange="updatePrice(${index}, this.value)" 
+                            class="w-16 px-1 py-0.5 border border-gray-300 rounded bg-white text-gray-800 mono-font text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none" />
+                        <span class="text-[10px] text-gray-400">ea</span>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <div class="flex items-center border border-gray-200 rounded-md bg-white">
+                        <button class="px-2 py-0.5 text-gray-600 hover:bg-gray-100 font-bold" onclick="updateQty(${index}, -1)">-</button>
+                        <span class="px-1.5 font-bold mono-font text-gray-800">${item.qty}</span>
+                        <button class="px-2 py-0.5 text-gray-600 hover:bg-gray-100 font-bold" onclick="updateQty(${index}, 1)">+</button>
+                    </div>
+                    <span class="font-bold text-gray-900 mono-font w-16 text-right">৳${itemTotal.toFixed(2)}</span>
+                    <button class="btn btn-xs btn-ghost text-red-500 hover:bg-red-50 px-1" onclick="removeItem(${index})">✕</button>
+                </div>
+            `;
+            cartItemsContainer.appendChild(row);
+        });
+        cartCount.textContent = `${count} item${count > 1 ? 's' : ''}`;
+        cartTotal.textContent = `৳${total.toFixed(2)}`;
+        btnCheckout.disabled = false;
+    }
+
+    btnCheckout.addEventListener('click', () => {
+        const total = cart.reduce((sum, i) => sum + (i.price * i.qty), 0);
+        paymentAmount.textContent = `৳${total.toFixed(2)}`;
+        speak(`Total payable amount is ${total.toFixed(2)} Taka`);
+        modalPayment.showModal();
+    });
+
+    btnConfirmPayment.addEventListener('click', () => {
+        modalPayment.close();
+        generateAsciiReceipt();
+        modalReceipt.showModal();
+    });
+
+    function generateAsciiReceipt() {
+        const total = cart.reduce((sum, i) => sum + (i.price * i.qty), 0);
+        let receipt = `=========================================\n`;
+        receipt += `             AAC.BD CHECKOUT             \n`;
+        receipt += `=========================================\n`;
+        receipt += `Date: ${new Date().toLocaleString()}\n`;
+        receipt += `-----------------------------------------\n`;
+        receipt += `Item            Qty   Price     Amount   \n`;
+        receipt += `-----------------------------------------\n`;
+        cart.forEach(item => {
+            const name = item.name.padEnd(14, ' ').substring(0, 14);
+            const qty = item.qty.toString().padStart(3, ' ');
+            const price = item.price.toFixed(0).padStart(7, ' ');
+            const amt = (item.price * item.qty).toFixed(2).padStart(8, ' ');
+            receipt += `${name} ${qty} ৳${price} ৳${amt}\n`;
+        });
+        receipt += `-----------------------------------------\n`;
+        receipt += `TOTAL:                   ৳${total.toFixed(2).padStart(9, ' ')}\n`;
+        receipt += `=========================================\n`;
+        receipt += `        THANK YOU FOR SHOPPING!          \n`;
+        receipt += `=========================================\n`;
+        asciiReceipt.textContent = receipt;
+    }
+
+    btnCloseReceipt.addEventListener('click', () => {
+        modalReceipt.close();
+        cart = [];
+        renderCart();
+        addLog('Checkout completed. Cart reset.', 'text-green-400');
+    });
+</script>
 </body>
 </html>
