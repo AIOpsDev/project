@@ -201,7 +201,15 @@
                     stopAllFeeds();
                     placeholder.classList.add('hidden');
                     webcam.classList.remove('hidden');
-                    streamRef = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
+                    streamRef = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            facingMode: { exact: "environment" },
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 }
+                        },
+                        audio: false
+                    });
+
                     webcam.srcObject = streamRef;
                     isCameraActive = true;
                     btnQuickCamera.textContent = 'Stop Camera';
